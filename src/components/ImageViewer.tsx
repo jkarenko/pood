@@ -31,7 +31,6 @@ export function ImageViewer({ imageUrl, name, onClose, onDelete }: Props) {
     >
       <div
         className="relative max-w-[90vw] max-h-[90vh] flex flex-col items-center"
-        onClick={(e) => e.stopPropagation()}
       >
         <img
           src={imageUrl}
@@ -49,7 +48,7 @@ export function ImageViewer({ imageUrl, name, onClose, onDelete }: Props) {
         </div>
 
         {/* Delete button — bottom left */}
-        <div className="absolute bottom-2 left-2">
+        <div className="absolute bottom-2 left-2" onClick={(e) => e.stopPropagation()}>
           {confirming ? (
             <button
               onClick={onDelete}
