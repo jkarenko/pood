@@ -4,7 +4,15 @@ import { CalendarPage } from "@/components/CalendarPage";
 import { ImageViewer } from "@/components/ImageViewer";
 import { UploadDialog } from "@/components/UploadDialog";
 import { HandshakePrompt } from "@/components/HandshakePrompt";
-import { getStoredPhrase, setHandshake } from "@/lib/handshake";
+import { GroupSwitcher } from "@/components/GroupSwitcher";
+import {
+  getActivePhrase,
+  getStoredPhrases,
+  addHandshake,
+  switchHandshake,
+  removeHandshake,
+  migrateIfNeeded,
+} from "@/lib/handshake";
 import type { DayData, DayEntry } from "@/lib/storage";
 import {
   loadDayData,
@@ -50,7 +58,9 @@ async function fetchDay(date: Date): Promise<DayState> {
 }
 
 export default function App() {
-  const [handshakeReady, setHandshakeReady] = useState(() => !!getStoredPhrase());
+  migrateIfNeeded();
+  const [activePhrase, setActivePhrase] = useState(() => getActivePhrase());
+  const [phrases, setPhrases] = useState(() => getStoredPhrases());
   const [current, setCurrent] = useState<DayState>({
     date: new Date(),
     data: { entries: [] },
@@ -69,16 +79,41 @@ export default function App() {
   const isToday = isSameDay(current.date, today);
 
   async function handleHandshake(phrase: string) {
-    await setHandshake(phrase);
-    setHandshakeReady(true);
+    await addHandshake(phrase);
+    setActivePhrase(phrase.trim().toLowerCase().slice(0, 20));
+    setPhrases(getStoredPhrases());
   }
 
-  // Initial load (only after handshake)
+  async function handleSwitch(phrase: string) {
+    await switchHandshake(phrase);
+    setActivePhrase(phrase);
+    setCurrent((prev) => ({ ...prev, loading: true, data: { entries: [] }, images: {} }));
+  }
+
+  async function handleAddGroup(phrase: string) {
+    await addHandshake(phrase);
+    setActivePhrase(phrase.trim().toLowerCase().slice(0, 20));
+    setPhrases(getStoredPhrases());
+    setCurrent((prev) => ({ ...prev, loading: true, data: { entries: [] }, images: {} }));
+  }
+
+  function handleRemoveGroup(phrase: string) {
+    const newActive = removeHandshake(phrase);
+    setPhrases(getStoredPhrases());
+    if (newActive) {
+      setActivePhrase(newActive);
+      setCurrent((prev) => ({ ...prev, loading: true, data: { entries: [] }, images: {} }));
+    } else {
+      setActivePhrase(null);
+    }
+  }
+
+  // Load data when active group changes
   useEffect(() => {
-    if (!handshakeReady) return;
+    if (!activePhrase) return;
     fetchDay(new Date()).then(setCurrent);
     loadLastName().then(setLastName);
-  }, [handshakeReady]);
+  }, [activePhrase]);
 
   async function navigate(dir: "forward" | "backward") {
     if (animating) return;
@@ -156,15 +191,23 @@ export default function App() {
    *                        top    = trans (prev day, flying in)
    */
 
-  if (!handshakeReady) {
+  if (!activePhrase) {
     return <HandshakePrompt onSubmit={handleHandshake} />;
   }
 
   return (
     <div className="app-root">
       <div className="calendar-container">
-        {/* Torn stubs */}
-        <div className="torn-stubs" />
+        {/* Torn stubs with group switcher */}
+        <div className="torn-stubs">
+          <GroupSwitcher
+            phrases={phrases}
+            activePhrase={activePhrase}
+            onSwitch={handleSwitch}
+            onAdd={handleAddGroup}
+            onRemove={handleRemoveGroup}
+          />
+        </div>
 
         {/* Page stack */}
         <div className="page-stack">

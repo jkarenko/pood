@@ -61,14 +61,17 @@
 
 /* ── Torn stubs (paper remnants from torn pages) ── */
 .torn-stubs {
-  height: 14px;
+  height: 28px;
   margin: 0 18px;
   background: #e8e0d4;
   border-left: 2px solid #d8d0c2;
   border-right: 2px solid #d8d0c2;
   position: relative;
-  z-index: 1;
+  z-index: 10;
   box-shadow: inset 0 -2px 4px rgba(0,0,0,0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .torn-stubs::after {
@@ -85,6 +88,147 @@
     #d8d0c2 4px,
     #d8d0c2 5px
   );
+}
+
+/* ── Group switcher ── */
+.group-switcher {
+  position: relative;
+}
+
+.group-stub-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.group-stub-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.group-stub-label {
+  font-family: 'Caveat', cursive;
+  font-size: 14px;
+  color: #8a7560;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-stub-chevron {
+  color: #a09080;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.group-stub-chevron.open {
+  transform: rotate(180deg);
+}
+
+.group-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 6px;
+  background: #faf6f0;
+  border: 1px solid #d4c9b8;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  min-width: 180px;
+  padding: 4px;
+  z-index: 20;
+}
+
+.group-dropdown-item {
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+}
+
+.group-dropdown-item.active {
+  background: rgba(138, 117, 96, 0.1);
+}
+
+.group-dropdown-label {
+  flex: 1;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 10px;
+  text-align: left;
+  font-family: 'Caveat', cursive;
+  font-size: 15px;
+  color: #3d3226;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-dropdown-item:hover {
+  background: rgba(138, 117, 96, 0.08);
+}
+
+.group-dropdown-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #baa994;
+  font-size: 16px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.group-dropdown-remove:hover {
+  color: #c0583a;
+  background: rgba(192, 88, 58, 0.1);
+}
+
+.group-dropdown-add {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  border-top: 1px solid #e8e0d4;
+  cursor: pointer;
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 13px;
+  color: #8a7560;
+  margin-top: 2px;
+}
+
+.group-dropdown-add:hover {
+  color: #5a4a3a;
+}
+
+.group-dropdown-add-form {
+  border-top: 1px solid #e8e0d4;
+  margin-top: 2px;
+  padding: 6px;
+}
+
+.group-dropdown-input {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid #d4c9b8;
+  border-radius: 4px;
+  font-family: 'Caveat', cursive;
+  font-size: 14px;
+  color: #3d3226;
+  background: white;
+  outline: none;
+}
+
+.group-dropdown-input:focus {
+  border-color: #8a7560;
 }
 
 /* ── Page stack (holds both layers during animation) ── */
