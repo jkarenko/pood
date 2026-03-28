@@ -15,6 +15,19 @@
   overflow: hidden;
 }
 
+/* ── Handshake prompt ── */
+.handshake-card {
+  margin-top: 25vh;
+  width: 100%;
+  max-width: 360px;
+  background: #faf6f0;
+  border: 1px solid #d4c9b8;
+  border-radius: 12px;
+  padding: 32px 28px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  text-align: center;
+}
+
 /* ── Calendar container ── */
 .calendar-container {
   position: relative;

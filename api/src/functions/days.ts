@@ -13,17 +13,18 @@ interface DayEntryEntity {
   offsetY: number;
 }
 
-// GET /api/days/{date}
+// GET /api/days/{group}/{date}
 app.http("getDayData", {
   methods: ["GET"],
-  route: "days/{date}",
+  route: "days/{group}/{date}",
   handler: async (req: HttpRequest): Promise<HttpResponseInit> => {
-    const date = req.params.date!;
+    const { group, date } = req.params;
+    const pk = `${group}#${date}`;
     const entries: DayEntryEntity[] = [];
 
     try {
       for await (const entity of tableClient.listEntities<DayEntryEntity>({
-        queryOptions: { filter: `PartitionKey eq '${date}'` },
+        queryOptions: { filter: `PartitionKey eq '${pk}'` },
       })) {
         entries.push(entity);
       }
@@ -48,12 +49,13 @@ app.http("getDayData", {
   },
 });
 
-// POST /api/days/{date}
+// POST /api/days/{group}/{date}
 app.http("saveDayData", {
   methods: ["POST"],
-  route: "days/{date}",
+  route: "days/{group}/{date}",
   handler: async (req: HttpRequest): Promise<HttpResponseInit> => {
-    const date = req.params.date!;
+    const { group, date } = req.params;
+    const pk = `${group}#${date}`;
     const body = (await req.json()) as {
       entries: Array<{
         gridPos: number;
@@ -68,7 +70,7 @@ app.http("saveDayData", {
 
     for (const entry of body.entries) {
       await tableClient.upsertEntity({
-        partitionKey: date,
+        partitionKey: pk,
         rowKey: String(entry.gridPos),
         name: entry.name,
         tilt: entry.tilt,

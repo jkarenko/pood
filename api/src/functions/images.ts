@@ -8,13 +8,13 @@ const connStr = process.env.AZURE_STORAGE_CONNECTION_STRING!;
 const blobService = BlobServiceClient.fromConnectionString(connStr);
 const container = blobService.getContainerClient("images");
 
-// GET /api/images/{date}/{gridPos}
+// GET /api/images/{group}/{date}/{gridPos}
 app.http("getImage", {
   methods: ["GET"],
-  route: "images/{date}/{gridPos}",
+  route: "images/{group}/{date}/{gridPos}",
   handler: async (req: HttpRequest): Promise<HttpResponseInit> => {
-    const { date, gridPos } = req.params;
-    const blob = container.getBlobClient(`${date}/${gridPos}.jpg`);
+    const { group, date, gridPos } = req.params;
+    const blob = container.getBlobClient(`${group}/${date}/${gridPos}.jpg`);
 
     try {
       const props = await blob.getProperties();
@@ -39,13 +39,13 @@ app.http("getImage", {
   },
 });
 
-// POST /api/images/{date}/{gridPos}
+// POST /api/images/{group}/{date}/{gridPos}
 app.http("saveImage", {
   methods: ["POST"],
-  route: "images/{date}/{gridPos}",
+  route: "images/{group}/{date}/{gridPos}",
   handler: async (req: HttpRequest): Promise<HttpResponseInit> => {
-    const { date, gridPos } = req.params;
-    const blob = container.getBlockBlobClient(`${date}/${gridPos}.jpg`);
+    const { group, date, gridPos } = req.params;
+    const blob = container.getBlockBlobClient(`${group}/${date}/${gridPos}.jpg`);
 
     const body = await req.arrayBuffer();
     await blob.uploadData(Buffer.from(body), {

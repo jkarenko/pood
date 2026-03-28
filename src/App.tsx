@@ -3,6 +3,8 @@ import "./App.css";
 import { CalendarPage } from "@/components/CalendarPage";
 import { ImageViewer } from "@/components/ImageViewer";
 import { UploadDialog } from "@/components/UploadDialog";
+import { HandshakePrompt } from "@/components/HandshakePrompt";
+import { getStoredPhrase, setHandshake } from "@/lib/handshake";
 import type { DayData, DayEntry } from "@/lib/storage";
 import {
   loadDayData,
@@ -47,6 +49,7 @@ async function fetchDay(date: Date): Promise<DayState> {
 }
 
 export default function App() {
+  const [handshakeReady, setHandshakeReady] = useState(() => !!getStoredPhrase());
   const [current, setCurrent] = useState<DayState>({
     date: new Date(),
     data: { entries: [] },
@@ -64,11 +67,17 @@ export default function App() {
   const today = new Date();
   const isToday = isSameDay(current.date, today);
 
-  // Initial load
+  async function handleHandshake(phrase: string) {
+    await setHandshake(phrase);
+    setHandshakeReady(true);
+  }
+
+  // Initial load (only after handshake)
   useEffect(() => {
+    if (!handshakeReady) return;
     fetchDay(new Date()).then(setCurrent);
     loadLastName().then(setLastName);
-  }, []);
+  }, [handshakeReady]);
 
   async function navigate(dir: "forward" | "backward") {
     if (animating) return;
@@ -130,6 +139,10 @@ export default function App() {
    *   Backward (put-back): bottom = current (stays visible)
    *                        top    = trans (prev day, flying in)
    */
+
+  if (!handshakeReady) {
+    return <HandshakePrompt onSubmit={handleHandshake} />;
+  }
 
   return (
     <div className="app-root">

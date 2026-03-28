@@ -20,13 +20,17 @@ function dateKey(date: Date): string {
 
 // ── API base ──
 
+import { getGroupId } from "./handshake";
+
 const API = "/api";
 
 // ── Day data ──
 
 export async function loadDayData(date: Date): Promise<DayData> {
+  const group = await getGroupId();
+  if (!group) return { entries: [] };
   try {
-    const res = await fetch(`${API}/days/${dateKey(date)}`);
+    const res = await fetch(`${API}/days/${group}/${dateKey(date)}`);
     if (!res.ok) return { entries: [] };
     return await res.json();
   } catch {
@@ -35,7 +39,9 @@ export async function loadDayData(date: Date): Promise<DayData> {
 }
 
 export async function saveDayData(date: Date, data: DayData): Promise<void> {
-  await fetch(`${API}/days/${dateKey(date)}`, {
+  const group = await getGroupId();
+  if (!group) return;
+  await fetch(`${API}/days/${group}/${dateKey(date)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -48,8 +54,12 @@ export async function loadImage(
   date: Date,
   gridPos: number
 ): Promise<string | null> {
+  const group = await getGroupId();
+  if (!group) return null;
   try {
-    const res = await fetch(`${API}/images/${dateKey(date)}/${gridPos}`);
+    const res = await fetch(
+      `${API}/images/${group}/${dateKey(date)}/${gridPos}`
+    );
     if (!res.ok) return null;
     const blob = await res.blob();
     return URL.createObjectURL(blob);
@@ -63,11 +73,13 @@ export async function saveImage(
   gridPos: number,
   dataUrl: string
 ): Promise<void> {
+  const group = await getGroupId();
+  if (!group) return;
   // Convert data URL to binary
   const res = await fetch(dataUrl);
   const blob = await res.blob();
 
-  await fetch(`${API}/images/${dateKey(date)}/${gridPos}`, {
+  await fetch(`${API}/images/${group}/${dateKey(date)}/${gridPos}`, {
     method: "POST",
     body: blob,
   });
