@@ -22,7 +22,7 @@ app.http("getDayData", {
   route: "days/{group}/{date}",
   handler: async (req: HttpRequest): Promise<HttpResponseInit> => {
     const { group, date } = req.params;
-    const pk = `${group}#${date}`;
+    const pk = `${group}_${date}`;
     const entries: DayEntryEntity[] = [];
 
     try {
@@ -58,7 +58,7 @@ app.http("saveDayData", {
   route: "days/{group}/{date}",
   handler: async (req: HttpRequest): Promise<HttpResponseInit> => {
     const { group, date } = req.params;
-    const pk = `${group}#${date}`;
+    const pk = `${group}_${date}`;
     const body = (await req.json()) as {
       entries: Array<{
         gridPos: number;
@@ -92,7 +92,7 @@ app.http("deleteEntry", {
   route: "days/{group}/{date}/{gridPos}",
   handler: async (req: HttpRequest): Promise<HttpResponseInit> => {
     const { group, date, gridPos } = req.params;
-    const pk = `${group}#${date}`;
+    const pk = `${group}_${date}`;
 
     try {
       await tableClient.deleteEntity(pk, gridPos!);
