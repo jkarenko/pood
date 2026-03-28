@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import "./App.css";
 import { CalendarPage } from "@/components/CalendarPage";
 import { ImageViewer } from "@/components/ImageViewer";

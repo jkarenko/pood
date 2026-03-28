@@ -1,5 +1,3 @@
-import { db, storage as fbStorage, isConfigured } from "./firebase";
-
 // ── Types ──
 
 export interface DayEntry {
@@ -20,125 +18,75 @@ function dateKey(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-// ── Firebase adapter (compat API) ──
+// ── API base ──
 
-async function fbLoadDayData(date: Date): Promise<DayData> {
-  if (!db) return { entries: [] };
-  const snap = await db.collection("days").doc(dateKey(date)).get();
-  if (!snap.exists) return { entries: [] };
-  return snap.data() as DayData;
-}
+const API = "/api";
 
-async function fbSaveDayData(date: Date, data: DayData): Promise<void> {
-  if (!db) return;
-  await db
-    .collection("days")
-    .doc(dateKey(date))
-    .set({ entries: data.entries.map((e) => ({ ...e })) });
-}
+// ── Day data ──
 
-async function fbLoadImage(date: Date, gridPos: number): Promise<string | null> {
-  if (!fbStorage) return null;
+export async function loadDayData(date: Date): Promise<DayData> {
   try {
-    return await fbStorage
-      .ref(`images/${dateKey(date)}/${gridPos}.jpg`)
-      .getDownloadURL();
+    const res = await fetch(`${API}/days/${dateKey(date)}`);
+    if (!res.ok) return { entries: [] };
+    return await res.json();
+  } catch {
+    return { entries: [] };
+  }
+}
+
+export async function saveDayData(date: Date, data: DayData): Promise<void> {
+  await fetch(`${API}/days/${dateKey(date)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
+// ── Images ──
+
+export async function loadImage(
+  date: Date,
+  gridPos: number
+): Promise<string | null> {
+  try {
+    const res = await fetch(`${API}/images/${dateKey(date)}/${gridPos}`);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
   } catch {
     return null;
   }
 }
 
-async function fbSaveImage(date: Date, gridPos: number, dataUrl: string): Promise<void> {
-  if (!fbStorage) return;
-  await fbStorage
-    .ref(`images/${dateKey(date)}/${gridPos}.jpg`)
-    .putString(dataUrl, "data_url");
-}
+export async function saveImage(
+  date: Date,
+  gridPos: number,
+  dataUrl: string
+): Promise<void> {
+  // Convert data URL to binary
+  const res = await fetch(dataUrl);
+  const blob = await res.blob();
 
-// ── window.storage (Claude artifact) adapter ──
-
-interface ArtifactStorage {
-  get(key: string): Promise<{ value: string } | null>;
-  set(key: string, value: string): Promise<unknown>;
-}
-
-function getArtifactStorage(): ArtifactStorage | null {
-  const ws = (window as any).storage;
-  if (ws && typeof ws.get === "function" && typeof ws.set === "function") {
-    return ws;
-  }
-  return null;
-}
-
-// ── In-memory fallback ──
-
-const mem = new Map<string, string>();
-
-// ── Unified public API ──
-// Priority: Firebase > window.storage > in-memory
-
-export async function loadDayData(date: Date): Promise<DayData> {
-  if (isConfigured) return fbLoadDayData(date);
-  try {
-    const s = getArtifactStorage();
-    if (s) {
-      const r = await s.get(`pood:day:${dateKey(date)}`);
-      if (r) return JSON.parse(r.value);
-    }
-  } catch {}
-  const v = mem.get(`pood:day:${dateKey(date)}`);
-  return v ? JSON.parse(v) : { entries: [] };
-}
-
-export async function saveDayData(date: Date, data: DayData): Promise<void> {
-  const json = JSON.stringify(data);
-  if (isConfigured) return fbSaveDayData(date, data);
-  try {
-    const s = getArtifactStorage();
-    if (s) { await s.set(`pood:day:${dateKey(date)}`, json); return; }
-  } catch {}
-  mem.set(`pood:day:${dateKey(date)}`, json);
-}
-
-export async function loadImage(date: Date, gridPos: number): Promise<string | null> {
-  if (isConfigured) return fbLoadImage(date, gridPos);
-  try {
-    const s = getArtifactStorage();
-    if (s) {
-      const r = await s.get(`pood:img:${dateKey(date)}:${gridPos}`);
-      return r ? r.value : null;
-    }
-  } catch {}
-  return mem.get(`pood:img:${dateKey(date)}:${gridPos}`) ?? null;
-}
-
-export async function saveImage(date: Date, gridPos: number, dataUrl: string): Promise<void> {
-  if (isConfigured) return fbSaveImage(date, gridPos, dataUrl);
-  try {
-    const s = getArtifactStorage();
-    if (s) { await s.set(`pood:img:${dateKey(date)}:${gridPos}`, dataUrl); return; }
-  } catch {}
-  mem.set(`pood:img:${dateKey(date)}:${gridPos}`, dataUrl);
+  await fetch(`${API}/images/${dateKey(date)}/${gridPos}`, {
+    method: "POST",
+    body: blob,
+  });
 }
 
 // ── Per-user last name (always local) ──
 
 export async function loadLastName(): Promise<string> {
-  try { return localStorage.getItem("pood:lastuser") ?? ""; } catch {}
   try {
-    const s = getArtifactStorage();
-    if (s) { const r = await s.get("pood:lastuser"); return r ? r.value : ""; }
-  } catch {}
-  return mem.get("pood:lastuser") ?? "";
+    return localStorage.getItem("pood:lastuser") ?? "";
+  } catch {
+    return "";
+  }
 }
 
 export async function saveLastName(name: string): Promise<void> {
-  try { localStorage.setItem("pood:lastuser", name); return; } catch {}
   try {
-    const s = getArtifactStorage();
-    if (s) { await s.set("pood:lastuser", name); return; }
+    localStorage.setItem("pood:lastuser", name);
   } catch {}
-  mem.set("pood:lastuser", name);
 }
 
 // ── Utility functions ──
@@ -161,7 +109,10 @@ export function randomOffset(): number {
   return (Math.random() - 0.5) * 12;
 }
 
-export async function resizeImage(file: File, maxDim: number = 1200): Promise<string> {
+export async function resizeImage(
+  file: File,
+  maxDim: number = 1200
+): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -171,8 +122,13 @@ export async function resizeImage(file: File, maxDim: number = 1200): Promise<st
         let w = img.width;
         let h = img.height;
         if (w > maxDim || h > maxDim) {
-          if (w > h) { h = (h / w) * maxDim; w = maxDim; }
-          else { w = (w / h) * maxDim; h = maxDim; }
+          if (w > h) {
+            h = (h / w) * maxDim;
+            w = maxDim;
+          } else {
+            w = (w / h) * maxDim;
+            h = maxDim;
+          }
         }
         canvas.width = w;
         canvas.height = h;

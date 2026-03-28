@@ -1,0 +1,11 @@
+{
+  "configurations": {
+    "default": {
+      "appLocation": ".",
+      "outputLocation": "dist",
+      "apiLocation": "api",
+      "appBuildCommand": "pnpm build",
+      "apiBuildCommand": "cd api && npm install && npm run build"
+    }
+  }
+}
