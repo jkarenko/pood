@@ -30,6 +30,7 @@
   align-items: flex-start;
   justify-content: center;
   padding: 24px 16px 48px;
+  overscroll-behavior-x: none;
   background: #c4b8a8;
   background-image:
     radial-gradient(ellipse at 20% 50%, #cfc3b2 0%, transparent 60%),
@@ -236,10 +237,12 @@
   position: relative;
   margin: 0 18px;
   overflow: visible;
+  touch-action: pan-y;
 }
 
 /* ── Calendar page ── */
 .calendar-page {
+  touch-action: pan-y;
   background: #f7f2ea;
   background-image:
     linear-gradient(180deg, #f7f2ea 0%, #f3ede4 100%);

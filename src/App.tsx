@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import "./App.css";
 import {
   useSwipeNavigation,
@@ -87,7 +87,7 @@ export default function App() {
     progress: 0,
     settling: false,
   });
-  const swipeTargetRef = useRef<DayState | null>(null);
+  const [swipeTarget, setSwipeTarget] = useState<DayState | null>(null);
 
   const today = new Date();
   const isToday = isSameDay(current.date, today);
@@ -203,25 +203,50 @@ export default function App() {
       canGoBackward: true,
       onStart: (dir) => {
         const targetDate = addDays(current.date, dir === "forward" ? 1 : -1);
-        fetchDay(targetDate).then((s) => {
-          swipeTargetRef.current = s;
-        });
+        fetchDay(targetDate).then(setSwipeTarget);
       },
       onCommit: () => {
-        const target = swipeTargetRef.current;
-        if (target) {
-          setCurrent(target);
-        }
-        swipeTargetRef.current = null;
+        setSwipeTarget((target) => {
+          if (target) setCurrent(target);
+          return null;
+        });
       },
     },
     setSwipe
+  );
+
+  const pageStackRef = useRef<HTMLElement | null>(null);
+  const combinedRef = useCallback(
+    (el: HTMLElement | null) => {
+      pageStackRef.current = el;
+      swipeRef(el);
+    },
+    [swipeRef]
   );
 
   // Clear swipe overlay after React has rendered the new current page
   useEffect(() => {
     if (swipe.settling && swipe.progress >= 1) {
       setSwipe({ active: false, direction: null, progress: 0, settling: false });
+      setSwipeTarget(null);
+
+      // Synthetic tap to re-anchor browser gesture state for the next swipe
+      const el = pageStackRef.current;
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        el.dispatchEvent(new TouchEvent("touchstart", {
+          bubbles: true,
+          cancelable: true,
+          touches: [new Touch({ identifier: 0, target: el, clientX: cx, clientY: cy })],
+        }));
+        el.dispatchEvent(new TouchEvent("touchend", {
+          bubbles: true,
+          cancelable: true,
+          changedTouches: [new Touch({ identifier: 0, target: el, clientX: cx, clientY: cy })],
+        }));
+      }
     }
   }, [current, swipe.settling, swipe.progress]);
 
@@ -254,16 +279,16 @@ export default function App() {
         </div>
 
         {/* Page stack */}
-        <div className="page-stack" ref={swipeRef}>
+        <div className="page-stack" ref={combinedRef}>
           {/* --- Swipe: gesture-driven layers --- */}
           {/* Forward (swipe left): next day sits underneath, current tears off on top */}
-          {swipe.active && swipe.direction === "forward" && swipeTargetRef.current && (
+          {swipe.active && swipe.direction === "forward" && swipeTarget && (
             <CalendarPage
-              date={swipeTargetRef.current.date}
-              entries={swipeTargetRef.current.data.entries}
-              images={swipeTargetRef.current.images}
-              isToday={isSameDay(swipeTargetRef.current.date, today)}
-              loading={swipeTargetRef.current.loading}
+              date={swipeTarget.date}
+              entries={swipeTarget.data.entries}
+              images={swipeTarget.images}
+              isToday={isSameDay(swipeTarget.date, today)}
+              loading={swipeTarget.loading}
               className="page-layer-bottom"
               onImageClick={handleImageClick}
             />
@@ -321,14 +346,14 @@ export default function App() {
                 style={getTearStyle("forward", swipe.progress)}
                 onImageClick={handleImageClick}
               />
-            ) : swipe.direction === "backward" && swipeTargetRef.current ? (
+            ) : swipe.direction === "backward" && swipeTarget ? (
               /* Backward: prev day flies in on top */
               <CalendarPage
-                date={swipeTargetRef.current.date}
-                entries={swipeTargetRef.current.data.entries}
-                images={swipeTargetRef.current.images}
-                isToday={isSameDay(swipeTargetRef.current.date, today)}
-                loading={swipeTargetRef.current.loading}
+                date={swipeTarget.date}
+                entries={swipeTarget.data.entries}
+                images={swipeTarget.images}
+                isToday={isSameDay(swipeTarget.date, today)}
+                loading={swipeTarget.loading}
                 className="page-layer-top"
                 style={getTearStyle("backward", swipe.progress)}
                 onImageClick={handleImageClick}

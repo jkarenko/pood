@@ -18,7 +18,7 @@ interface Options {
 }
 
 const THRESHOLD = 0.3;
-const MIN_SWIPE_PX = 15;
+const MIN_SWIPE_PX = 8;
 const SETTLE_DURATION = 280;
 /** Max progress change per frame (~60fps → max ~0.05/frame → full swipe takes min ~330ms) */
 const MAX_PROGRESS_PER_FRAME = 0.05;
@@ -89,6 +89,8 @@ export function useSwipeNavigation(
   const onTouchStart = useCallback((e: TouchEvent) => {
     if (stateRef.current.settling) return;
     const touch = e.touches[0];
+    // Ignore touches near screen edges (< 20px) — let browser handle those
+    if (touch.clientX < 20 || touch.clientX > window.innerWidth - 20) return;
     touchRef.current = {
       startX: touch.clientX,
       startY: touch.clientY,
@@ -111,11 +113,13 @@ export function useSwipeNavigation(
       // Decide direction on first significant movement
       if (!t.started) {
         if (Math.abs(dx) < MIN_SWIPE_PX && Math.abs(dy) < MIN_SWIPE_PX) return;
-        // If more vertical than horizontal, bail — let browser scroll
-        if (Math.abs(dy) > Math.abs(dx)) {
+        // If clearly more vertical than horizontal, bail — let browser scroll
+        if (Math.abs(dy) > Math.abs(dx) * 1.5) {
           touchRef.current = null;
           return;
         }
+        // Horizontal intent detected — prevent browser gesture immediately
+        e.preventDefault();
         // Swipe left (dx < 0) = forward (next/newer day)
         // Swipe right (dx > 0) = backward (previous/older day)
         const dir = dx < 0 ? "forward" : "backward";
@@ -177,7 +181,7 @@ export function useSwipeNavigation(
     (el: HTMLElement | null) => {
       if (!el) return;
 
-      el.addEventListener("touchstart", onTouchStart, { passive: true });
+      el.addEventListener("touchstart", onTouchStart, { passive: false });
       el.addEventListener("touchmove", onTouchMove, { passive: false });
       el.addEventListener("touchend", onTouchEnd, { passive: true });
       el.addEventListener("touchcancel", onTouchEnd, { passive: true });

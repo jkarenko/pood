@@ -3,12 +3,21 @@ const ACTIVE_KEY = "pood:active-handshake";
 const MAX_LENGTH = 20;
 
 async function hashPhrase(phrase: string): Promise<string> {
-  const data = new TextEncoder().encode(normalize(phrase));
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  const hex = Array.from(new Uint8Array(hash))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-  return hex.slice(0, 12);
+  const str = normalize(phrase);
+  if (globalThis.crypto?.subtle) {
+    const data = new TextEncoder().encode(str);
+    const hash = await crypto.subtle.digest("SHA-256", data);
+    const hex = Array.from(new Uint8Array(hash))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    return hex.slice(0, 12);
+  }
+  // Fallback for non-HTTPS (e.g. LAN dev): simple string hash
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+  }
+  return (h >>> 0).toString(16).padStart(8, "0").slice(0, 12);
 }
 
 function normalize(phrase: string): string {
