@@ -1,0 +1,48 @@
+name: Deploy to Azure Static Web Apps
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+      - name: Build API
+        run: |
+          cd api
+          npm ci
+          npm run build
+          rm -rf node_modules
+          npm ci --omit=dev
+
+      - name: Stage deploy artifacts
+        run: |
+          mkdir -p deploy
+          cp -r dist/* deploy/
+          cp staticwebapp.config.json deploy/
+          cp -r api deploy/api
+
+      - uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.SWA_DEPLOYMENT_TOKEN }}
+          action: upload
+          app_location: deploy
+          output_location: .
+          api_location: deploy/api
+          skip_app_build: true

@@ -7,8 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "deploy": "pnpm build && swa deploy dist --env production"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
