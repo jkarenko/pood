@@ -11,6 +11,7 @@ import {
   saveDayData,
   loadImage,
   saveImage,
+  deleteEntry,
   loadLastName,
   saveLastName,
   getAvailableSlot,
@@ -60,7 +61,7 @@ export default function App() {
   const [animDir, setAnimDir] = useState<"forward" | "backward" | null>(null);
   const [animating, setAnimating] = useState(false);
 
-  const [viewImage, setViewImage] = useState<{ url: string; name: string } | null>(null);
+  const [viewImage, setViewImage] = useState<{ url: string; name: string; gridPos: number } | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [lastName, setLastName] = useState("");
 
@@ -125,8 +126,23 @@ export default function App() {
     setUploadOpen(false);
   }
 
-  function handleImageClick(url: string, name: string) {
-    if (!animating) setViewImage({ url, name });
+  function handleImageClick(url: string, name: string, gridPos: number) {
+    if (!animating) setViewImage({ url, name, gridPos });
+  }
+
+  async function handleDelete() {
+    if (!viewImage) return;
+    const { gridPos } = viewImage;
+    await deleteEntry(current.date, gridPos);
+    const newEntries = current.data.entries.filter((e) => e.gridPos !== gridPos);
+    const newImages = { ...current.images };
+    delete newImages[gridPos];
+    setCurrent((prev) => ({
+      ...prev,
+      data: { entries: newEntries },
+      images: newImages,
+    }));
+    setViewImage(null);
   }
 
   const isFull = current.data.entries.length >= 9;
@@ -261,6 +277,7 @@ export default function App() {
           imageUrl={viewImage.url}
           name={viewImage.name}
           onClose={() => setViewImage(null)}
+          onDelete={handleDelete}
         />
       )}
 

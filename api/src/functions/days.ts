@@ -1,8 +1,11 @@
 import { app, HttpRequest, HttpResponseInit } from "@azure/functions";
 import { TableClient } from "@azure/data-tables";
+import { BlobServiceClient } from "@azure/storage-blob";
 
 const connStr = process.env.AZURE_STORAGE_CONNECTION_STRING!;
 const tableClient = TableClient.fromConnectionString(connStr, "days");
+const blobService = BlobServiceClient.fromConnectionString(connStr);
+const imageContainer = blobService.getContainerClient("images");
 
 interface DayEntryEntity {
   partitionKey: string;
@@ -78,6 +81,29 @@ app.http("saveDayData", {
         offsetY: entry.offsetY,
       });
     }
+
+    return { status: 204 };
+  },
+});
+
+// DELETE /api/days/{group}/{date}/{gridPos}
+app.http("deleteEntry", {
+  methods: ["DELETE"],
+  route: "days/{group}/{date}/{gridPos}",
+  handler: async (req: HttpRequest): Promise<HttpResponseInit> => {
+    const { group, date, gridPos } = req.params;
+    const pk = `${group}#${date}`;
+
+    try {
+      await tableClient.deleteEntity(pk, gridPos!);
+    } catch (e: any) {
+      if (e.statusCode !== 404) throw e;
+    }
+
+    try {
+      const blob = imageContainer.getBlobClient(`${group}/${date}/${gridPos}.jpg`);
+      await blob.deleteIfExists();
+    } catch {}
 
     return { status: 204 };
   },

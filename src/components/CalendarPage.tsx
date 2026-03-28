@@ -14,7 +14,7 @@ interface Props {
   isToday: boolean;
   loading: boolean;
   className?: string;
-  onImageClick?: (url: string, name: string) => void;
+  onImageClick?: (url: string, name: string, gridPos: number) => void;
 }
 
 export function CalendarPage({ date, entries, images, isToday, loading, className = "", onImageClick }: Props) {
@@ -64,7 +64,7 @@ export function CalendarPage({ date, entries, images, isToday, loading, classNam
                 <PolaroidImage
                   entry={entry}
                   imageUrl={images[entry.gridPos]}
-                  onClick={() => onImageClick?.(images[entry.gridPos], entry.name)}
+                  onClick={() => onImageClick?.(images[entry.gridPos], entry.name, entry.gridPos)}
                 />
               ) : null}
             </div>

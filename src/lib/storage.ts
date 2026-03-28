@@ -85,6 +85,19 @@ export async function saveImage(
   });
 }
 
+// ── Delete entry ──
+
+export async function deleteEntry(
+  date: Date,
+  gridPos: number
+): Promise<void> {
+  const group = await getGroupId();
+  if (!group) return;
+  await fetch(`${API}/days/${group}/${dateKey(date)}/${gridPos}`, {
+    method: "DELETE",
+  });
+}
+
 // ── Per-user last name (always local) ──
 
 export async function loadLastName(): Promise<string> {
