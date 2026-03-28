@@ -1,10 +1,9 @@
 {
   "name": "pood-api",
   "version": "1.0.0",
-  "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "build": "esbuild src/index.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/index.js --external:@azure/functions",
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/index.js --external:@azure/functions",
     "watch": "tsc -w"
   },
   "dependencies": {
