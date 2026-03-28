@@ -14,10 +14,11 @@ interface Props {
   isToday: boolean;
   loading: boolean;
   className?: string;
+  style?: React.CSSProperties;
   onImageClick?: (url: string, name: string, gridPos: number) => void;
 }
 
-export function CalendarPage({ date, entries, images, isToday, loading, className = "", onImageClick }: Props) {
+export function CalendarPage({ date, entries, images, isToday, loading, className = "", style, onImageClick }: Props) {
   const dayNum = date.getDate();
   const weekday = WEEKDAYS[date.getDay()];
   const monthYear = `${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
@@ -28,7 +29,7 @@ export function CalendarPage({ date, entries, images, isToday, loading, classNam
   });
 
   return (
-    <div className={`calendar-page ${className}`}>
+    <div className={`calendar-page ${className}`} style={style}>
       <div className="page-header">
         <div className="page-weekday">{weekday}</div>
         <div className="page-day-number">

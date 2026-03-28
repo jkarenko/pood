@@ -285,44 +285,44 @@
 
 /* ── Tear animations ── */
 
-/* Forward: tear off — hinge top-left, rotate CW ~45°, then detach and fall */
+/* Forward: hinge on top-left, peel off then fly left */
 .calendar-page.tear-forward {
   animation: tear-off 0.7s cubic-bezier(0.4, 0, 0.7, 0.2) forwards;
+  transform-origin: top left;
 }
 
 @keyframes tear-off {
   0% {
-    transform: rotate(0deg) translateY(0);
+    transform: translateX(0) rotate(0deg);
     opacity: 1;
   }
-  /* Hinge phase: rotate around top-left */
   50% {
-    transform: rotate(45deg) translateY(0);
+    transform: translateX(0) rotate(45deg);
     opacity: 1;
   }
-  /* Detach and fall */
   100% {
-    transform: rotate(55deg) translateY(120vh);
+    transform: translateX(-120vw) rotate(35deg);
     opacity: 0;
   }
 }
 
-/* Backward: page flies back in from below, counter-rotates back into place */
+/* Backward: fly in from left, then hinge CW back into place */
 .calendar-page.tear-backward {
   animation: tear-back 0.6s cubic-bezier(0.2, 0, 0.3, 1) forwards;
+  transform-origin: top left;
 }
 
 @keyframes tear-back {
   0% {
-    transform: rotate(55deg) translateY(120vh);
+    transform: translateX(-120vw) rotate(35deg);
     opacity: 0;
   }
-  40% {
-    transform: rotate(40deg) translateY(0);
+  50% {
+    transform: translateX(0) rotate(45deg);
     opacity: 1;
   }
   100% {
-    transform: rotate(0deg) translateY(0);
+    transform: translateX(0) rotate(0deg);
     opacity: 1;
   }
 }

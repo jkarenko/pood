@@ -1,5 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import "./App.css";
+import {
+  useSwipeNavigation,
+  getTearStyle,
+  type SwipeState,
+} from "@/hooks/useSwipeNavigation";
 import { CalendarPage } from "@/components/CalendarPage";
 import { ImageViewer } from "@/components/ImageViewer";
 import { UploadDialog } from "@/components/UploadDialog";
@@ -74,6 +79,15 @@ export default function App() {
   const [viewImage, setViewImage] = useState<{ url: string; name: string; gridPos: number } | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [lastName, setLastName] = useState("");
+
+  // Swipe navigation
+  const [swipe, setSwipe] = useState<SwipeState>({
+    active: false,
+    direction: null,
+    progress: 0,
+    settling: false,
+  });
+  const swipeTargetRef = useRef<DayState | null>(null);
 
   const today = new Date();
   const isToday = isSameDay(current.date, today);
@@ -162,7 +176,7 @@ export default function App() {
   }
 
   function handleImageClick(url: string, name: string, gridPos: number) {
-    if (!animating) setViewImage({ url, name, gridPos });
+    if (!busy) setViewImage({ url, name, gridPos });
   }
 
   async function handleDelete() {
@@ -182,6 +196,36 @@ export default function App() {
 
   const isFull = current.data.entries.length >= 9;
   const canGoForward = !isSameDay(current.date, today);
+
+  const swipeRef = useSwipeNavigation(
+    {
+      canGoForward,
+      canGoBackward: true,
+      onStart: (dir) => {
+        const targetDate = addDays(current.date, dir === "forward" ? 1 : -1);
+        fetchDay(targetDate).then((s) => {
+          swipeTargetRef.current = s;
+        });
+      },
+      onCommit: () => {
+        const target = swipeTargetRef.current;
+        if (target) {
+          setCurrent(target);
+        }
+        swipeTargetRef.current = null;
+      },
+    },
+    setSwipe
+  );
+
+  // Clear swipe overlay after React has rendered the new current page
+  useEffect(() => {
+    if (swipe.settling && swipe.progress >= 1) {
+      setSwipe({ active: false, direction: null, progress: 0, settling: false });
+    }
+  }, [current, swipe.settling, swipe.progress]);
+
+  const busy = animating || swipe.active;
 
   /*
    * Layer stacking during animation:
@@ -210,9 +254,36 @@ export default function App() {
         </div>
 
         {/* Page stack */}
-        <div className="page-stack">
-          {/* --- Forward: next day sits underneath, current tears off on top --- */}
-          {animDir === "forward" && trans && (
+        <div className="page-stack" ref={swipeRef}>
+          {/* --- Swipe: gesture-driven layers --- */}
+          {/* Forward (swipe left): next day sits underneath, current tears off on top */}
+          {swipe.active && swipe.direction === "forward" && swipeTargetRef.current && (
+            <CalendarPage
+              date={swipeTargetRef.current.date}
+              entries={swipeTargetRef.current.data.entries}
+              images={swipeTargetRef.current.images}
+              isToday={isSameDay(swipeTargetRef.current.date, today)}
+              loading={swipeTargetRef.current.loading}
+              className="page-layer-bottom"
+              onImageClick={handleImageClick}
+            />
+          )}
+
+          {/* Backward (swipe right): current stays underneath, prev day flies in on top */}
+          {swipe.active && swipe.direction === "backward" && (
+            <CalendarPage
+              date={current.date}
+              entries={current.data.entries}
+              images={current.images}
+              isToday={isSameDay(current.date, today)}
+              loading={current.loading}
+              className="page-layer-bottom"
+              onImageClick={handleImageClick}
+            />
+          )}
+
+          {/* --- CSS animation layers (button clicks) --- */}
+          {!swipe.active && animDir === "forward" && trans && (
             <CalendarPage
               date={trans.date}
               entries={trans.data.entries}
@@ -224,8 +295,7 @@ export default function App() {
             />
           )}
 
-          {/* --- Backward: current day stays underneath --- */}
-          {animDir === "backward" && (
+          {!swipe.active && animDir === "backward" && (
             <CalendarPage
               date={current.date}
               entries={current.data.entries}
@@ -238,7 +308,42 @@ export default function App() {
           )}
 
           {/* --- The main/animated page --- */}
-          {animDir === "forward" ? (
+          {swipe.active ? (
+            swipe.direction === "forward" ? (
+              /* Forward: current page tears off on top */
+              <CalendarPage
+                date={current.date}
+                entries={current.data.entries}
+                images={current.images}
+                isToday={isSameDay(current.date, today)}
+                loading={current.loading}
+                className="page-layer-top"
+                style={getTearStyle("forward", swipe.progress)}
+                onImageClick={handleImageClick}
+              />
+            ) : swipe.direction === "backward" && swipeTargetRef.current ? (
+              /* Backward: prev day flies in on top */
+              <CalendarPage
+                date={swipeTargetRef.current.date}
+                entries={swipeTargetRef.current.data.entries}
+                images={swipeTargetRef.current.images}
+                isToday={isSameDay(swipeTargetRef.current.date, today)}
+                loading={swipeTargetRef.current.loading}
+                className="page-layer-top"
+                style={getTearStyle("backward", swipe.progress)}
+                onImageClick={handleImageClick}
+              />
+            ) : (
+              <CalendarPage
+                date={current.date}
+                entries={current.data.entries}
+                images={current.images}
+                isToday={isToday}
+                loading={current.loading}
+                onImageClick={handleImageClick}
+              />
+            )
+          ) : animDir === "forward" ? (
             <CalendarPage
               date={current.date}
               entries={current.data.entries}
@@ -272,7 +377,7 @@ export default function App() {
 
         {/* Navigation */}
         <div className="nav-row">
-          <button className="nav-btn" onClick={() => navigate("backward")} disabled={animating}>
+          <button className="nav-btn" onClick={() => navigate("backward")} disabled={busy}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M15 18l-6-6 6-6" />
             </svg>
@@ -306,7 +411,7 @@ export default function App() {
           <button
             className="nav-btn"
             onClick={() => navigate("forward")}
-            disabled={!canGoForward || animating}
+            disabled={!canGoForward || busy}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M9 18l6-6-6-6" />
