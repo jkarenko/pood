@@ -33,7 +33,8 @@ app.http("getImage", {
         body: Buffer.concat(chunks),
         headers: {
           "Content-Type": props.contentType || "image/jpeg",
-          "Cache-Control": "public, max-age=86400",
+          "Cache-Control": "private, max-age=86400",
+          "Vary": "X-Handshake",
         },
       };
     } catch (e: any) {
