@@ -2,6 +2,7 @@ import { app, HttpRequest, HttpResponseInit } from "@azure/functions";
 import { TableClient } from "@azure/data-tables";
 import { BlobServiceClient } from "@azure/storage-blob";
 import { getGroupId } from "../auth.js";
+import { checkRateLimit, constantTime } from "../ratelimit.js";
 
 const connStr = process.env.AZURE_STORAGE_CONNECTION_STRING!;
 const tableClient = TableClient.fromConnectionString(connStr, "days");
@@ -22,9 +23,13 @@ app.http("getDayData", {
   methods: ["GET"],
   route: "days/{date}",
   handler: async (req: HttpRequest): Promise<HttpResponseInit> => {
+    const wait = constantTime();
+    const blocked = await checkRateLimit(req);
+    if (blocked) return blocked;
+
     const { date } = req.params;
     const group = getGroupId(req);
-    if (!group) return { status: 403 };
+    if (!group) { await wait(); return { status: 403 }; }
 
     const pk = `${group}_${date}`;
     const entries: DayEntryEntity[] = [];
@@ -37,11 +42,13 @@ app.http("getDayData", {
       }
     } catch (e: any) {
       if (e.statusCode === 404) {
+        await wait();
         return { jsonBody: { entries: [] } };
       }
       throw e;
     }
 
+    await wait();
     return {
       jsonBody: {
         entries: entries.map((e) => ({
@@ -61,6 +68,9 @@ app.http("saveDayData", {
   methods: ["POST"],
   route: "days/{date}",
   handler: async (req: HttpRequest): Promise<HttpResponseInit> => {
+    const blocked = await checkRateLimit(req);
+    if (blocked) return blocked;
+
     const { date } = req.params;
     const group = getGroupId(req);
     if (!group) return { status: 403 };
@@ -98,6 +108,9 @@ app.http("deleteEntry", {
   methods: ["DELETE"],
   route: "days/{date}/{gridPos}",
   handler: async (req: HttpRequest): Promise<HttpResponseInit> => {
+    const blocked = await checkRateLimit(req);
+    if (blocked) return blocked;
+
     const { date, gridPos } = req.params;
     const group = getGroupId(req);
     if (!group) return { status: 403 };

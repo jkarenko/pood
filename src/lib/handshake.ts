@@ -2,6 +2,7 @@ const PHRASES_KEY = "pood:handshakes";
 const ACTIVE_KEY = "pood:active-handshake";
 const GROUP_IDS_KEY = "pood:group-ids";
 const MAX_LENGTH = 20;
+const MAX_GROUPS = 10;
 
 function normalize(phrase: string): string {
   return phrase.trim().toLowerCase().slice(0, MAX_LENGTH);
@@ -52,11 +53,16 @@ export function getActivePhrase(): string | null {
 
 // ── Write ──
 
-export async function addHandshake(phrase: string): Promise<string> {
+export async function addHandshake(phrase: string): Promise<string | null> {
   const normalized = normalize(phrase);
-  const groupId = await fetchGroupId(normalized);
 
   const phrases = getStoredPhrases();
+  if (!phrases.includes(normalized) && phrases.length >= MAX_GROUPS) {
+    return null;
+  }
+
+  const groupId = await fetchGroupId(normalized);
+
   if (!phrases.includes(normalized)) {
     phrases.push(normalized);
   }

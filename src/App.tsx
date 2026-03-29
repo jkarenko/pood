@@ -113,7 +113,8 @@ export default function App() {
   const isToday = isSameDay(current.date, today);
 
   async function handleHandshake(phrase: string) {
-    await addHandshake(phrase);
+    const result = await addHandshake(phrase);
+    if (!result) return;
     setActivePhrase(phrase.trim().toLowerCase().slice(0, 20));
     setPhrases(getStoredPhrases());
   }
@@ -125,7 +126,8 @@ export default function App() {
   }
 
   async function handleAddGroup(phrase: string) {
-    await addHandshake(phrase);
+    const result = await addHandshake(phrase);
+    if (!result) return;
     setActivePhrase(phrase.trim().toLowerCase().slice(0, 20));
     setPhrases(getStoredPhrases());
     setCurrent((prev) => ({ ...prev, loading: true, data: { entries: [] }, images: {} }));
