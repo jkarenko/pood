@@ -79,7 +79,9 @@ export function GroupSwitcher({
             </div>
           ))}
 
-          {adding ? (
+          {phrases.length >= 10 ? (
+            <span className="group-dropdown-limit">Max 10 groups</span>
+          ) : adding ? (
             <form onSubmit={handleAdd} className="group-dropdown-add-form">
               <input
                 value={newPhrase}
