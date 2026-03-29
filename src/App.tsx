@@ -16,6 +16,7 @@ import {
   addHandshake,
   switchHandshake,
   removeHandshake,
+  findPhraseByHash,
   migrateIfNeeded,
 } from "@/lib/handshake";
 import type { DayData, DayEntry } from "@/lib/storage";
@@ -62,9 +63,9 @@ async function fetchDay(date: Date): Promise<DayState> {
   return { date, data, images: imgs, loading: false };
 }
 
-function getGroupFromUrl(): string | null {
+function getHashFromUrl(): string | null {
   const path = window.location.pathname.slice(1);
-  return path ? decodeURIComponent(path) : null;
+  return path || null;
 }
 
 export default function App() {
@@ -72,14 +73,16 @@ export default function App() {
   const [activePhrase, setActivePhrase] = useState(() => getActivePhrase());
   const [phrases, setPhrases] = useState(() => getStoredPhrases());
 
-  // Handle /{phrase} URL — join group idempotently, then clean URL
+  // Handle /{hash} URL — switch to matching group if the user has it, otherwise ignore
   useEffect(() => {
-    const urlGroup = getGroupFromUrl();
-    if (!urlGroup) return;
-    const normalized = urlGroup.trim().toLowerCase().slice(0, 20);
-    addHandshake(normalized).then(() => {
-      setActivePhrase(normalized);
-      setPhrases(getStoredPhrases());
+    const hash = getHashFromUrl();
+    if (!hash) return;
+    findPhraseByHash(hash).then((phrase) => {
+      if (phrase) {
+        switchHandshake(phrase).then(() => {
+          setActivePhrase(phrase);
+        });
+      }
       window.history.replaceState(null, "", "/");
     });
   }, []);

@@ -106,6 +106,15 @@ export function removeHandshake(phrase: string): string | null {
   return getActivePhrase();
 }
 
+// ── Lookup by hash ──
+
+export async function findPhraseByHash(hash: string): Promise<string | null> {
+  for (const phrase of getStoredPhrases()) {
+    if ((await hashPhrase(phrase)) === hash) return phrase;
+  }
+  return null;
+}
+
 // ── Migration from single-phrase format ──
 
 export function migrateIfNeeded(): void {
