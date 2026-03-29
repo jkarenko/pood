@@ -71,7 +71,8 @@ export async function loadImage(
 export async function saveImage(
   date: Date,
   gridPos: number,
-  dataUrl: string
+  dataUrl: string,
+  name?: string
 ): Promise<void> {
   const group = await getGroupId();
   if (!group) return;
@@ -79,7 +80,8 @@ export async function saveImage(
   const res = await fetch(dataUrl);
   const blob = await res.blob();
 
-  await fetch(`${API}/images/${group}/${dateKey(date)}/${gridPos}`, {
+  const params = name ? `?name=${encodeURIComponent(name)}` : "";
+  await fetch(`${API}/images/${group}/${dateKey(date)}/${gridPos}${params}`, {
     method: "POST",
     body: blob,
   });

@@ -62,10 +62,27 @@ async function fetchDay(date: Date): Promise<DayState> {
   return { date, data, images: imgs, loading: false };
 }
 
+function getGroupFromUrl(): string | null {
+  const path = window.location.pathname.slice(1);
+  return path ? decodeURIComponent(path) : null;
+}
+
 export default function App() {
   migrateIfNeeded();
   const [activePhrase, setActivePhrase] = useState(() => getActivePhrase());
   const [phrases, setPhrases] = useState(() => getStoredPhrases());
+
+  // Handle /{phrase} URL — join group idempotently, then clean URL
+  useEffect(() => {
+    const urlGroup = getGroupFromUrl();
+    if (!urlGroup) return;
+    const normalized = urlGroup.trim().toLowerCase().slice(0, 20);
+    addHandshake(normalized).then(() => {
+      setActivePhrase(normalized);
+      setPhrases(getStoredPhrases());
+      window.history.replaceState(null, "", "/");
+    });
+  }, []);
   const [current, setCurrent] = useState<DayState>({
     date: new Date(),
     data: { entries: [] },
@@ -164,7 +181,7 @@ export default function App() {
 
     const newData: DayData = { entries: [...current.data.entries, entry] };
     await saveDayData(current.date, newData);
-    await saveImage(current.date, slot, dataUrl);
+    await saveImage(current.date, slot, dataUrl, name);
     await saveLastName(name);
     setLastName(name);
     setCurrent((prev) => ({

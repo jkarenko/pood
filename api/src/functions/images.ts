@@ -53,7 +53,8 @@ app.http("saveImage", {
       blobHTTPHeaders: { blobContentType: "image/jpeg" },
     });
 
-    await notifyDiscord(group!, `📸 New photo added for ${date}`);
+    const name = req.query.get("name") || "Someone";
+    await notifyDiscord(group!, name);
 
     return { status: 204 };
   },
