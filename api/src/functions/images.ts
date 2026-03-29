@@ -4,17 +4,21 @@ import {
   StorageSharedKeyCredential,
 } from "@azure/storage-blob";
 import { notifyDiscord } from "../discord.js";
+import { getGroupId } from "../auth.js";
 
 const connStr = process.env.AZURE_STORAGE_CONNECTION_STRING!;
 const blobService = BlobServiceClient.fromConnectionString(connStr);
 const container = blobService.getContainerClient("images");
 
-// GET /api/images/{group}/{date}/{gridPos}
+// GET /api/images/{date}/{gridPos}
 app.http("getImage", {
   methods: ["GET"],
-  route: "images/{group}/{date}/{gridPos}",
+  route: "images/{date}/{gridPos}",
   handler: async (req: HttpRequest): Promise<HttpResponseInit> => {
-    const { group, date, gridPos } = req.params;
+    const { date, gridPos } = req.params;
+    const group = getGroupId(req);
+    if (!group) return { status: 403 };
+
     const blob = container.getBlobClient(`${group}/${date}/${gridPos}.jpg`);
 
     try {
@@ -40,12 +44,15 @@ app.http("getImage", {
   },
 });
 
-// POST /api/images/{group}/{date}/{gridPos}
+// POST /api/images/{date}/{gridPos}
 app.http("saveImage", {
   methods: ["POST"],
-  route: "images/{group}/{date}/{gridPos}",
+  route: "images/{date}/{gridPos}",
   handler: async (req: HttpRequest): Promise<HttpResponseInit> => {
-    const { group, date, gridPos } = req.params;
+    const { date, gridPos } = req.params;
+    const group = getGroupId(req);
+    if (!group) return { status: 403 };
+
     const blob = container.getBlockBlobClient(`${group}/${date}/${gridPos}.jpg`);
 
     const body = await req.arrayBuffer();
@@ -54,7 +61,7 @@ app.http("saveImage", {
     });
 
     const name = req.query.get("name") || "Someone";
-    await notifyDiscord(group!, name);
+    await notifyDiscord(group, name);
 
     return { status: 204 };
   },

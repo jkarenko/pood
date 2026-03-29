@@ -69,21 +69,21 @@ function getHashFromUrl(): string | null {
 }
 
 export default function App() {
-  migrateIfNeeded();
   const [activePhrase, setActivePhrase] = useState(() => getActivePhrase());
   const [phrases, setPhrases] = useState(() => getStoredPhrases());
 
-  // Handle /{hash} URL — switch to matching group if the user has it, otherwise ignore
+  // Run migrations, then handle /{hash} URL
   useEffect(() => {
-    const hash = getHashFromUrl();
-    if (!hash) return;
-    findPhraseByHash(hash).then((phrase) => {
-      if (phrase) {
-        switchHandshake(phrase).then(() => {
+    migrateIfNeeded().then(() => {
+      const hash = getHashFromUrl();
+      if (hash) {
+        const phrase = findPhraseByHash(hash);
+        if (phrase) {
+          switchHandshake(phrase);
           setActivePhrase(phrase);
-        });
+        }
+        window.history.replaceState(null, "", "/");
       }
-      window.history.replaceState(null, "", "/");
     });
   }, []);
   const [current, setCurrent] = useState<DayState>({

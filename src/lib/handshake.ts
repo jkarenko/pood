@@ -1,30 +1,35 @@
 const PHRASES_KEY = "pood:handshakes";
 const ACTIVE_KEY = "pood:active-handshake";
+const GROUP_IDS_KEY = "pood:group-ids";
 const MAX_LENGTH = 20;
-
-async function hashPhrase(phrase: string): Promise<string> {
-  const str = normalize(phrase);
-  if (globalThis.crypto?.subtle) {
-    const data = new TextEncoder().encode(str);
-    const hash = await crypto.subtle.digest("SHA-256", data);
-    const hex = Array.from(new Uint8Array(hash))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-    return hex.slice(0, 12);
-  }
-  // Fallback for non-HTTPS (e.g. LAN dev): simple string hash
-  let h = 0;
-  for (let i = 0; i < str.length; i++) {
-    h = ((h << 5) - h + str.charCodeAt(i)) | 0;
-  }
-  return (h >>> 0).toString(16).padStart(8, "0").slice(0, 12);
-}
 
 function normalize(phrase: string): string {
   return phrase.trim().toLowerCase().slice(0, MAX_LENGTH);
 }
 
-let cachedGroupId: string | null = null;
+// ── Group ID cache (phrase → HMAC hash from server) ──
+
+function getGroupIds(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(GROUP_IDS_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function setGroupIds(ids: Record<string, string>): void {
+  try {
+    localStorage.setItem(GROUP_IDS_KEY, JSON.stringify(ids));
+  } catch {}
+}
+
+async function fetchGroupId(phrase: string): Promise<string> {
+  const res = await fetch("/api/group-id", {
+    headers: { "X-Handshake": phrase },
+  });
+  const data = await res.json();
+  return data.id;
+}
 
 // ── Read ──
 
@@ -45,53 +50,47 @@ export function getActivePhrase(): string | null {
   }
 }
 
-export async function getGroupId(): Promise<string | null> {
-  if (cachedGroupId) return cachedGroupId;
-  const phrase = getActivePhrase();
-  if (!phrase) return null;
-  cachedGroupId = await hashPhrase(phrase);
-  return cachedGroupId;
-}
-
 // ── Write ──
 
 export async function addHandshake(phrase: string): Promise<string> {
   const normalized = normalize(phrase);
-  const groupId = await hashPhrase(normalized);
-  cachedGroupId = groupId;
+  const groupId = await fetchGroupId(normalized);
 
   const phrases = getStoredPhrases();
   if (!phrases.includes(normalized)) {
     phrases.push(normalized);
   }
 
+  const ids = getGroupIds();
+  ids[normalized] = groupId;
+
   try {
     localStorage.setItem(PHRASES_KEY, JSON.stringify(phrases));
     localStorage.setItem(ACTIVE_KEY, normalized);
+    setGroupIds(ids);
   } catch {}
 
   return groupId;
 }
 
-export async function switchHandshake(phrase: string): Promise<string> {
+export async function switchHandshake(phrase: string): Promise<void> {
   const normalized = normalize(phrase);
-  const groupId = await hashPhrase(normalized);
-  cachedGroupId = groupId;
 
   try {
     localStorage.setItem(ACTIVE_KEY, normalized);
   } catch {}
-
-  return groupId;
 }
 
 export function removeHandshake(phrase: string): string | null {
   const normalized = normalize(phrase);
   const phrases = getStoredPhrases().filter((p) => p !== normalized);
-  cachedGroupId = null;
+
+  const ids = getGroupIds();
+  delete ids[normalized];
 
   try {
     localStorage.setItem(PHRASES_KEY, JSON.stringify(phrases));
+    setGroupIds(ids);
     if (getActivePhrase() === normalized) {
       if (phrases.length > 0) {
         localStorage.setItem(ACTIVE_KEY, phrases[0]);
@@ -108,17 +107,19 @@ export function removeHandshake(phrase: string): string | null {
 
 // ── Lookup by hash ──
 
-export async function findPhraseByHash(hash: string): Promise<string | null> {
-  for (const phrase of getStoredPhrases()) {
-    if ((await hashPhrase(phrase)) === hash) return phrase;
+export function findPhraseByHash(hash: string): string | null {
+  const ids = getGroupIds();
+  for (const [phrase, groupId] of Object.entries(ids)) {
+    if (groupId === hash) return phrase;
   }
   return null;
 }
 
-// ── Migration from single-phrase format ──
+// ── Migration ──
 
-export function migrateIfNeeded(): void {
+export async function migrateIfNeeded(): Promise<void> {
   try {
+    // Migrate from single-phrase format
     const old = localStorage.getItem("pood:handshake");
     if (old && !localStorage.getItem(PHRASES_KEY)) {
       const normalized = normalize(old);
@@ -126,5 +127,19 @@ export function migrateIfNeeded(): void {
       localStorage.setItem(ACTIVE_KEY, normalized);
       localStorage.removeItem("pood:handshake");
     }
+
+    // Fetch missing group IDs (e.g. after HMAC migration)
+    const phrases = getStoredPhrases();
+    const ids = getGroupIds();
+    let changed = false;
+    for (const phrase of phrases) {
+      if (!ids[phrase]) {
+        try {
+          ids[phrase] = await fetchGroupId(phrase);
+          changed = true;
+        } catch {}
+      }
+    }
+    if (changed) setGroupIds(ids);
   } catch {}
 }

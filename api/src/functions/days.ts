@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit } from "@azure/functions";
 import { TableClient } from "@azure/data-tables";
 import { BlobServiceClient } from "@azure/storage-blob";
+import { getGroupId } from "../auth.js";
 
 const connStr = process.env.AZURE_STORAGE_CONNECTION_STRING!;
 const tableClient = TableClient.fromConnectionString(connStr, "days");
@@ -16,12 +17,15 @@ interface DayEntryEntity {
   offsetY: number;
 }
 
-// GET /api/days/{group}/{date}
+// GET /api/days/{date}
 app.http("getDayData", {
   methods: ["GET"],
-  route: "days/{group}/{date}",
+  route: "days/{date}",
   handler: async (req: HttpRequest): Promise<HttpResponseInit> => {
-    const { group, date } = req.params;
+    const { date } = req.params;
+    const group = getGroupId(req);
+    if (!group) return { status: 403 };
+
     const pk = `${group}_${date}`;
     const entries: DayEntryEntity[] = [];
 
@@ -52,12 +56,15 @@ app.http("getDayData", {
   },
 });
 
-// POST /api/days/{group}/{date}
+// POST /api/days/{date}
 app.http("saveDayData", {
   methods: ["POST"],
-  route: "days/{group}/{date}",
+  route: "days/{date}",
   handler: async (req: HttpRequest): Promise<HttpResponseInit> => {
-    const { group, date } = req.params;
+    const { date } = req.params;
+    const group = getGroupId(req);
+    if (!group) return { status: 403 };
+
     const pk = `${group}_${date}`;
     const body = (await req.json()) as {
       entries: Array<{
@@ -86,12 +93,15 @@ app.http("saveDayData", {
   },
 });
 
-// DELETE /api/days/{group}/{date}/{gridPos}
+// DELETE /api/days/{date}/{gridPos}
 app.http("deleteEntry", {
   methods: ["DELETE"],
-  route: "days/{group}/{date}/{gridPos}",
+  route: "days/{date}/{gridPos}",
   handler: async (req: HttpRequest): Promise<HttpResponseInit> => {
-    const { group, date, gridPos } = req.params;
+    const { date, gridPos } = req.params;
+    const group = getGroupId(req);
+    if (!group) return { status: 403 };
+
     const pk = `${group}_${date}`;
 
     try {

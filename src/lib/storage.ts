@@ -20,17 +20,24 @@ function dateKey(date: Date): string {
 
 // ── API base ──
 
-import { getGroupId } from "./handshake";
+import { getActivePhrase } from "./handshake";
 
 const API = "/api";
+
+function authHeaders(): Record<string, string> {
+  const phrase = getActivePhrase();
+  return phrase ? { "X-Handshake": phrase } : {};
+}
 
 // ── Day data ──
 
 export async function loadDayData(date: Date): Promise<DayData> {
-  const group = await getGroupId();
-  if (!group) return { entries: [] };
+  const phrase = getActivePhrase();
+  if (!phrase) return { entries: [] };
   try {
-    const res = await fetch(`${API}/days/${group}/${dateKey(date)}`);
+    const res = await fetch(`${API}/days/${dateKey(date)}`, {
+      headers: authHeaders(),
+    });
     if (!res.ok) return { entries: [] };
     return await res.json();
   } catch {
@@ -39,11 +46,11 @@ export async function loadDayData(date: Date): Promise<DayData> {
 }
 
 export async function saveDayData(date: Date, data: DayData): Promise<void> {
-  const group = await getGroupId();
-  if (!group) return;
-  await fetch(`${API}/days/${group}/${dateKey(date)}`, {
+  const phrase = getActivePhrase();
+  if (!phrase) return;
+  await fetch(`${API}/days/${dateKey(date)}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(data),
   });
 }
@@ -54,11 +61,12 @@ export async function loadImage(
   date: Date,
   gridPos: number
 ): Promise<string | null> {
-  const group = await getGroupId();
-  if (!group) return null;
+  const phrase = getActivePhrase();
+  if (!phrase) return null;
   try {
     const res = await fetch(
-      `${API}/images/${group}/${dateKey(date)}/${gridPos}`
+      `${API}/images/${dateKey(date)}/${gridPos}`,
+      { headers: authHeaders() }
     );
     if (!res.ok) return null;
     const blob = await res.blob();
@@ -74,15 +82,16 @@ export async function saveImage(
   dataUrl: string,
   name?: string
 ): Promise<void> {
-  const group = await getGroupId();
-  if (!group) return;
+  const phrase = getActivePhrase();
+  if (!phrase) return;
   // Convert data URL to binary
   const res = await fetch(dataUrl);
   const blob = await res.blob();
 
   const params = name ? `?name=${encodeURIComponent(name)}` : "";
-  await fetch(`${API}/images/${group}/${dateKey(date)}/${gridPos}${params}`, {
+  await fetch(`${API}/images/${dateKey(date)}/${gridPos}${params}`, {
     method: "POST",
+    headers: authHeaders(),
     body: blob,
   });
 }
@@ -93,10 +102,11 @@ export async function deleteEntry(
   date: Date,
   gridPos: number
 ): Promise<void> {
-  const group = await getGroupId();
-  if (!group) return;
-  await fetch(`${API}/days/${group}/${dateKey(date)}/${gridPos}`, {
+  const phrase = getActivePhrase();
+  if (!phrase) return;
+  await fetch(`${API}/days/${dateKey(date)}/${gridPos}`, {
     method: "DELETE",
+    headers: authHeaders(),
   });
 }
 
