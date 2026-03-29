@@ -3,6 +3,7 @@ import {
   BlobServiceClient,
   StorageSharedKeyCredential,
 } from "@azure/storage-blob";
+import { notifyDiscord } from "../discord.js";
 
 const connStr = process.env.AZURE_STORAGE_CONNECTION_STRING!;
 const blobService = BlobServiceClient.fromConnectionString(connStr);
@@ -51,6 +52,8 @@ app.http("saveImage", {
     await blob.uploadData(Buffer.from(body), {
       blobHTTPHeaders: { blobContentType: "image/jpeg" },
     });
+
+    await notifyDiscord(group!, `📸 New photo added for ${date}`);
 
     return { status: 204 };
   },
