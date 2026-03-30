@@ -29,6 +29,7 @@ import {
   loadLastName,
   saveLastName,
   getAvailableSlot,
+  calcSlotCount,
   randomTilt,
   randomOffset,
   resizeImage,
@@ -172,7 +173,8 @@ export default function App() {
   }
 
   async function handleUpload(file: File, name: string) {
-    const slot = getAvailableSlot(current.data.entries);
+    const visibleSlots = calcSlotCount(current.data.entries);
+    const slot = getAvailableSlot(current.data.entries, visibleSlots);
 
     const dataUrl = await resizeImage(file);
     const entry: DayEntry = {
@@ -213,6 +215,35 @@ export default function App() {
       images: newImages,
     }));
     setViewImage(null);
+  }
+
+  async function handleReorder(from: number, to: number) {
+    const newEntries = current.data.entries.map((e) => {
+      if (e.gridPos === from) {
+        return { ...e, gridPos: to, tilt: randomTilt(), offsetX: randomOffset(), offsetY: randomOffset() };
+      }
+      if (e.gridPos === to) {
+        return { ...e, gridPos: from, tilt: randomTilt(), offsetX: randomOffset(), offsetY: randomOffset() };
+      }
+      return e;
+    });
+
+    // Update images map: swap the blob URLs
+    const newImages = { ...current.images };
+    const fromImg = newImages[from];
+    const toImg = newImages[to];
+    delete newImages[from];
+    delete newImages[to];
+    if (fromImg) newImages[to] = fromImg;
+    if (toImg) newImages[from] = toImg;
+
+    const newData: DayData = { entries: newEntries };
+    setCurrent((prev) => ({
+      ...prev,
+      data: newData,
+      images: newImages,
+    }));
+    await saveDayData(current.date, newData);
   }
 
   const canGoForward = !isSameDay(current.date, today);
@@ -280,6 +311,7 @@ export default function App() {
   const navProps = {
     onNavigate: navigate,
     onGoToDate: goToDate,
+    onReorder: handleReorder,
     canGoForward,
     busy,
   };

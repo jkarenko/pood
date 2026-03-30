@@ -437,6 +437,8 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
+  position: relative;
+  touch-action: pan-y;
 }
 
 .grid-cell {
@@ -444,8 +446,79 @@
   align-items: center;
   justify-content: center;
   position: relative;
-  min-height: 0;
+  /* Match the natural height of a polaroid: square image + 6px top + 28px bottom padding */
+  min-height: 154px;
 }
+
+/* ── Polaroid container (wrapper for tilt/offset transform) ── */
+.polaroid-container {
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.polaroid-container .polaroid-frame {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.polaroid-container:hover .polaroid-frame {
+  transform: scale(1.05);
+  z-index: 10;
+  box-shadow:
+    0 4px 12px rgba(0,0,0,0.16),
+    0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* ── Drag and reorder ── */
+.grid-cell.drag-source {
+  z-index: 1;
+}
+
+.grid-cell.drag-target {
+  z-index: 2;
+}
+
+/* Hidden source: invisible but preserves cell height */
+.polaroid-container.drag-hidden {
+  visibility: hidden;
+}
+
+/* Swap preview: the polaroid sliding into place during drag */
+.polaroid-container.swap-preview {
+  opacity: 0.5;
+  transition: opacity 0.25s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Floating overlay for the dragged polaroid */
+.drag-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.drag-overlay .polaroid-container.dragging {
+  opacity: 1;
+}
+
+.drag-overlay .polaroid-container.dragging .polaroid-frame {
+  transform: scale(1.08);
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.35),
+    0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* ── Grid expand separator (dashed line between base rows and expanded rows) ── */
+.grid-expand-separator {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 2px dashed #d4c9b8;
+  pointer-events: none;
+}
+
 
 .grid-loading {
   grid-column: 1 / -1;
@@ -707,6 +780,10 @@
 
   .photo-grid {
     gap: 4px;
+  }
+
+  .grid-cell {
+    min-height: 122px;
   }
 
   .fab-add {

@@ -128,10 +128,18 @@ export async function saveLastName(name: string): Promise<void> {
 
 // ── Utility functions ──
 
-export function getAvailableSlot(entries: DayEntry[]): number {
+/**
+ * Pick a random empty slot for a new upload.
+ * @param entries  Current day entries
+ * @param visibleSlots  Number of slots currently rendered in the grid (must be >= 9)
+ */
+export function getAvailableSlot(entries: DayEntry[], visibleSlots?: number): number {
   const taken = new Set(entries.map((e) => e.gridPos));
-  // Find empty slots within current row-aligned capacity (multiples of 3, min 9)
-  const capacity = Math.max(9, Math.ceil(taken.size / 3) * 3);
+  const maxOccupied = entries.reduce((m, e) => Math.max(m, e.gridPos), -1);
+  // Use the visible grid size if provided, otherwise derive from entries
+  const capacity = visibleSlots
+    ? Math.max(9, visibleSlots)
+    : Math.max(9, Math.ceil((maxOccupied + 1) / 3) * 3);
   const available = [];
   for (let i = 0; i < capacity; i++) {
     if (!taken.has(i)) available.push(i);
@@ -139,10 +147,17 @@ export function getAvailableSlot(entries: DayEntry[]): number {
   if (available.length > 0) {
     return available[Math.floor(Math.random() * available.length)];
   }
-  // All current slots full — open a new row and pick randomly within it
+  // All visible slots full — open a new row and pick randomly within it
+  // Max 10 rows (30 slots)
+  if (capacity >= 30) return -1;
   const newRowStart = capacity;
-  const slot = newRowStart + Math.floor(Math.random() * 3);
-  return slot;
+  return newRowStart + Math.floor(Math.random() * 3);
+}
+
+/** Calculate the number of grid slots to render (always row-aligned, min 9) */
+export function calcSlotCount(entries: DayEntry[]): number {
+  const maxPos = entries.reduce((m, e) => Math.max(m, e.gridPos), -1);
+  return Math.max(9, Math.ceil((maxPos + 1) / 3) * 3);
 }
 
 export function randomTilt(): number {

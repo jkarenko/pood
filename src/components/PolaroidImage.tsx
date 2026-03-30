@@ -4,14 +4,15 @@ interface Props {
   entry: DayEntry;
   imageUrl: string | null;
   onClick: () => void;
+  className?: string;
 }
 
-export function PolaroidImage({ entry, imageUrl, onClick }: Props) {
+export function PolaroidImage({ entry, imageUrl, onClick, className = "" }: Props) {
   if (!imageUrl) return null;
 
   return (
     <div
-      className="cursor-pointer transition-transform duration-200 hover:scale-105 hover:z-10"
+      className={`polaroid-container ${className}`}
       style={{
         transform: `rotate(${entry.tilt}deg) translate(${entry.offsetX}px, ${entry.offsetY}px)`,
       }}
