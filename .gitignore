@@ -36,3 +36,6 @@ Thumbs.db
 
 # Parcel
 .parcel-cache
+
+# Backups
+backup-*/
