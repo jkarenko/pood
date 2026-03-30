@@ -202,9 +202,11 @@ export function useDragReorder({ onReorder, occupiedPositions }: Options) {
 
     function onUp() {
       activeRef.current = false;
+      // Read current drag state before resetting
       setDrag((prev) => {
         if (prev.active && prev.targetPos !== null && prev.targetPos !== prev.sourcePos) {
-          onReorder(prev.sourcePos, prev.targetPos);
+          // Schedule onReorder outside the state updater
+          queueMicrotask(() => onReorder(prev.sourcePos, prev.targetPos!));
         }
         return INITIAL;
       });
