@@ -39,6 +39,8 @@ export function useDragReorder({ onReorder, occupiedPositions }: Options) {
   const cellRectsRef = useRef<Map<number, DOMRect>>(new Map());
   const activeRef = useRef(false);
   const holdTargetRef = useRef<HTMLElement | null>(null);
+  const onReorderRef = useRef(onReorder);
+  onReorderRef.current = onReorder;
 
   function getPointerRelToPage(clientX: number, clientY: number) {
     const page = pageRef.current;
@@ -165,6 +167,12 @@ export function useDragReorder({ onReorder, occupiedPositions }: Options) {
         const pos = getPointerRelToPage(clientX, clientY);
 
         activeRef.current = true;
+
+        // Add document-level listeners immediately to avoid a gap between
+        // releasing pointer capture and the useEffect adding them.
+        // On iPhone, the touch is lost during this gap.
+        installDocListeners();
+
         setDrag({
           active: true,
           sourcePos: gridPos,
@@ -180,9 +188,15 @@ export function useDragReorder({ onReorder, occupiedPositions }: Options) {
     [occupiedPositions, snapshotCellRects]
   );
 
-  // Document-level listeners — only while drag is active
-  useEffect(() => {
-    if (!drag.active) return;
+  // Document-level drag listeners.
+  // installDocListeners() is called eagerly from the hold-timer callback
+  // so there is no gap between releasing pointer capture and listening for
+  // moves/up.  The useEffect below acts as a safety net and handles cleanup.
+  const docCleanupRef = useRef<(() => void) | null>(null);
+
+  function installDocListeners() {
+    // Prevent double-install
+    if (docCleanupRef.current) return;
 
     function onMove(e: PointerEvent) {
       e.preventDefault();
@@ -202,11 +216,9 @@ export function useDragReorder({ onReorder, occupiedPositions }: Options) {
 
     function onUp() {
       activeRef.current = false;
-      // Read current drag state before resetting
       setDrag((prev) => {
         if (prev.active && prev.targetPos !== null && prev.targetPos !== prev.sourcePos) {
-          // Schedule onReorder outside the state updater
-          queueMicrotask(() => onReorder(prev.sourcePos, prev.targetPos!));
+          queueMicrotask(() => onReorderRef.current(prev.sourcePos, prev.targetPos!));
         }
         return INITIAL;
       });
@@ -220,12 +232,21 @@ export function useDragReorder({ onReorder, occupiedPositions }: Options) {
     document.addEventListener("pointermove", onMove);
     document.addEventListener("pointerup", onUp);
     document.addEventListener("pointercancel", onCancel);
-    return () => {
+
+    docCleanupRef.current = () => {
       document.removeEventListener("pointermove", onMove);
       document.removeEventListener("pointerup", onUp);
       document.removeEventListener("pointercancel", onCancel);
+      docCleanupRef.current = null;
     };
-  }, [drag.active, onReorder]);
+  }
+
+  // Cleanup when drag ends
+  useEffect(() => {
+    if (!drag.active && docCleanupRef.current) {
+      docCleanupRef.current();
+    }
+  }, [drag.active]);
 
   return {
     drag,
