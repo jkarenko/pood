@@ -4,12 +4,10 @@ export interface DragState {
   active: boolean;
   sourcePos: number;
   targetPos: number | null;
-  /** Pointer position relative to the page container (for overlay positioning) */
   pointerX: number;
   pointerY: number;
   grabOffsetX: number;
   grabOffsetY: number;
-  /** True when pointer is below the grid's bottom edge */
   belowGrid: boolean;
 }
 
@@ -37,10 +35,10 @@ export function useDragReorder({ onReorder, occupiedPositions }: Options) {
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startPointer = useRef({ x: 0, y: 0 });
   const gridRef = useRef<HTMLDivElement | null>(null);
-  /** Reference to the calendar-page element for page-relative pointer coords */
   const pageRef = useRef<HTMLDivElement | null>(null);
   const cellRectsRef = useRef<Map<number, DOMRect>>(new Map());
   const activeRef = useRef(false);
+  const holdTargetRef = useRef<HTMLElement | null>(null);
 
   function getPointerRelToPage(clientX: number, clientY: number) {
     const page = pageRef.current;
@@ -87,7 +85,22 @@ export function useDragReorder({ onReorder, occupiedPositions }: Options) {
       clearTimeout(holdTimer.current);
       holdTimer.current = null;
     }
+    if (holdTargetRef.current) {
+      holdTargetRef.current.releasePointerCapture(0);
+      holdTargetRef.current = null;
+    }
   }
+
+  // Suppress context menu while hold timer is pending or drag is active
+  useEffect(() => {
+    function onContextMenu(e: Event) {
+      if (holdTimer.current || activeRef.current) {
+        e.preventDefault();
+      }
+    }
+    document.addEventListener("contextmenu", onContextMenu);
+    return () => document.removeEventListener("contextmenu", onContextMenu);
+  }, []);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent, gridPos: number) => {
@@ -97,10 +110,46 @@ export function useDragReorder({ onReorder, occupiedPositions }: Options) {
       startPointer.current = { x: e.clientX, y: e.clientY };
       const clientX = e.clientX;
       const clientY = e.clientY;
+      const pointerId = e.pointerId;
+
+      // Capture pointer on the target element during the hold phase.
+      // This keeps pointermove/up flowing to this element without
+      // needing document-level listeners (which interfere with swipe).
+      const target = e.currentTarget as HTMLElement;
+      target.setPointerCapture(pointerId);
+      holdTargetRef.current = target;
+
+      // Hold-phase movement check
+      function onHoldMove(ev: PointerEvent) {
+        const dx = ev.clientX - startPointer.current.x;
+        const dy = ev.clientY - startPointer.current.y;
+        if (Math.sqrt(dx * dx + dy * dy) > MOVE_THRESHOLD) {
+          cleanup();
+        }
+      }
+      function onHoldUp() { cleanup(); }
+      function cleanup() {
+        cancelHold();
+        target.removeEventListener("pointermove", onHoldMove);
+        target.removeEventListener("pointerup", onHoldUp);
+        target.removeEventListener("pointercancel", onHoldUp);
+        try { target.releasePointerCapture(pointerId); } catch {}
+      }
+
+      target.addEventListener("pointermove", onHoldMove);
+      target.addEventListener("pointerup", onHoldUp);
+      target.addEventListener("pointercancel", onHoldUp);
 
       cancelHold();
       holdTimer.current = setTimeout(() => {
         holdTimer.current = null;
+        // Remove hold-phase listeners
+        target.removeEventListener("pointermove", onHoldMove);
+        target.removeEventListener("pointerup", onHoldUp);
+        target.removeEventListener("pointercancel", onHoldUp);
+        try { target.releasePointerCapture(pointerId); } catch {}
+        holdTargetRef.current = null;
+
         snapshotCellRects();
         const cellRect = cellRectsRef.current.get(gridPos);
         const gx = cellRect ? clientX - cellRect.left : 0;
@@ -123,19 +172,12 @@ export function useDragReorder({ onReorder, occupiedPositions }: Options) {
     [occupiedPositions, snapshotCellRects]
   );
 
-  // Use document-level pointer events so we track the pointer even outside the grid
+  // Document-level listeners — only while drag is active
   useEffect(() => {
-    function onMove(e: PointerEvent) {
-      if (holdTimer.current) {
-        const dx = e.clientX - startPointer.current.x;
-        const dy = e.clientY - startPointer.current.y;
-        if (Math.sqrt(dx * dx + dy * dy) > MOVE_THRESHOLD) {
-          cancelHold();
-        }
-        return;
-      }
+    if (!drag.active) return;
 
-      if (!activeRef.current) return;
+    function onMove(e: PointerEvent) {
+      e.preventDefault();
 
       const pos = getPointerRelToPage(e.clientX, e.clientY);
       const hit = hitTest(e.clientX, e.clientY);
@@ -151,10 +193,7 @@ export function useDragReorder({ onReorder, occupiedPositions }: Options) {
     }
 
     function onUp() {
-      cancelHold();
-      if (!activeRef.current) return;
       activeRef.current = false;
-
       setDrag((prev) => {
         if (prev.active && prev.targetPos !== null && prev.targetPos !== prev.sourcePos) {
           onReorder(prev.sourcePos, prev.targetPos);
@@ -164,7 +203,6 @@ export function useDragReorder({ onReorder, occupiedPositions }: Options) {
     }
 
     function onCancel() {
-      cancelHold();
       activeRef.current = false;
       setDrag(INITIAL);
     }
@@ -177,7 +215,7 @@ export function useDragReorder({ onReorder, occupiedPositions }: Options) {
       document.removeEventListener("pointerup", onUp);
       document.removeEventListener("pointercancel", onCancel);
     };
-  }, [onReorder]);
+  }, [drag.active, onReorder]);
 
   return {
     drag,

@@ -91,6 +91,9 @@ export function useSwipeNavigation(
     const touch = e.touches[0];
     // Ignore touches near screen edges (< 20px) — let browser handle those
     if (touch.clientX < 20 || touch.clientX > window.innerWidth - 20) return;
+    // Ignore touches on polaroid images — those belong to drag-to-reorder
+    const target = e.target as HTMLElement;
+    if (target.closest(".polaroid-container")) return;
     touchRef.current = {
       startX: touch.clientX,
       startY: touch.clientY,

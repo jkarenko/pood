@@ -454,6 +454,9 @@
 .polaroid-container {
   cursor: pointer;
   transition: opacity 0.2s ease;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
 }
 
 .polaroid-container .polaroid-frame {
@@ -565,6 +568,7 @@
 .polaroid-image {
   width: 100%;
   height: 100%;
+  -webkit-touch-callout: none; /* Prevent iOS "save image" on long press */
   object-fit: cover;
   display: block;
 }
