@@ -64,8 +64,8 @@ app.http("saveImage", {
       blobHTTPHeaders: { blobContentType: "image/jpeg" },
     });
 
-    const name = req.query.get("name") || "Someone";
-    await notifyDiscord(group, name);
+    const name = req.query.get("name");
+    if (name) await notifyDiscord(group, name);
 
     return { status: 204 };
   },

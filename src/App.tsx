@@ -243,7 +243,11 @@ export default function App() {
       data: newData,
       images: newImages,
     }));
+
+    // Persist: save entries and re-upload images to new positions (no name = no Discord notification)
     await saveDayData(current.date, newData);
+    if (fromImg) await saveImage(current.date, to, fromImg);
+    if (toImg) await saveImage(current.date, from, toImg);
   }
 
   const canGoForward = !isSameDay(current.date, today);
