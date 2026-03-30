@@ -128,14 +128,21 @@ export async function saveLastName(name: string): Promise<void> {
 
 // ── Utility functions ──
 
-export function getAvailableSlot(entries: DayEntry[]): number | null {
+export function getAvailableSlot(entries: DayEntry[]): number {
   const taken = new Set(entries.map((e) => e.gridPos));
+  // Find empty slots within current row-aligned capacity (multiples of 3, min 9)
+  const capacity = Math.max(9, Math.ceil(taken.size / 3) * 3);
   const available = [];
-  for (let i = 0; i < 9; i++) {
+  for (let i = 0; i < capacity; i++) {
     if (!taken.has(i)) available.push(i);
   }
-  if (available.length === 0) return null;
-  return available[Math.floor(Math.random() * available.length)];
+  if (available.length > 0) {
+    return available[Math.floor(Math.random() * available.length)];
+  }
+  // All current slots full — open a new row and pick randomly within it
+  const newRowStart = capacity;
+  const slot = newRowStart + Math.floor(Math.random() * 3);
+  return slot;
 }
 
 export function randomTilt(): number {

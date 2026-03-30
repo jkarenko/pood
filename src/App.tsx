@@ -173,7 +173,6 @@ export default function App() {
 
   async function handleUpload(file: File, name: string) {
     const slot = getAvailableSlot(current.data.entries);
-    if (slot === null) return;
 
     const dataUrl = await resizeImage(file);
     const entry: DayEntry = {
@@ -216,8 +215,12 @@ export default function App() {
     setViewImage(null);
   }
 
-  const isFull = current.data.entries.length >= 9;
   const canGoForward = !isSameDay(current.date, today);
+
+  function goToDate(date: Date) {
+    if (busy) return;
+    fetchDay(date).then(setCurrent);
+  }
 
   const swipeRef = useSwipeNavigation(
     {
@@ -274,6 +277,13 @@ export default function App() {
 
   const busy = animating || swipe.active;
 
+  const navProps = {
+    onNavigate: navigate,
+    onGoToDate: goToDate,
+    canGoForward,
+    busy,
+  };
+
   /*
    * Layer stacking during animation:
    *   Forward (tear-off):  bottom = trans (next day, static)
@@ -312,6 +322,7 @@ export default function App() {
               isToday={isSameDay(swipeTarget.date, today)}
               loading={swipeTarget.loading}
               className="page-layer-bottom"
+              {...navProps}
               onImageClick={handleImageClick}
             />
           )}
@@ -325,6 +336,7 @@ export default function App() {
               isToday={isSameDay(current.date, today)}
               loading={current.loading}
               className="page-layer-bottom"
+              {...navProps}
               onImageClick={handleImageClick}
             />
           )}
@@ -338,6 +350,7 @@ export default function App() {
               isToday={isSameDay(trans.date, today)}
               loading={trans.loading}
               className="page-layer-bottom"
+              {...navProps}
               onImageClick={handleImageClick}
             />
           )}
@@ -350,6 +363,7 @@ export default function App() {
               isToday={isSameDay(current.date, today)}
               loading={current.loading}
               className="page-layer-bottom"
+              {...navProps}
               onImageClick={handleImageClick}
             />
           )}
@@ -366,7 +380,8 @@ export default function App() {
                 loading={current.loading}
                 className="page-layer-top"
                 style={getTearStyle("forward", swipe.progress)}
-                onImageClick={handleImageClick}
+                {...navProps}
+              onImageClick={handleImageClick}
               />
             ) : swipe.direction === "backward" && swipeTarget ? (
               /* Backward: prev day flies in on top */
@@ -378,7 +393,8 @@ export default function App() {
                 loading={swipeTarget.loading}
                 className="page-layer-top"
                 style={getTearStyle("backward", swipe.progress)}
-                onImageClick={handleImageClick}
+                {...navProps}
+              onImageClick={handleImageClick}
               />
             ) : (
               <CalendarPage
@@ -387,7 +403,8 @@ export default function App() {
                 images={current.images}
                 isToday={isToday}
                 loading={current.loading}
-                onImageClick={handleImageClick}
+                {...navProps}
+              onImageClick={handleImageClick}
               />
             )
           ) : animDir === "forward" ? (
@@ -398,6 +415,7 @@ export default function App() {
               isToday={isSameDay(current.date, today)}
               loading={current.loading}
               className="page-layer-top tear-forward"
+              {...navProps}
               onImageClick={handleImageClick}
             />
           ) : animDir === "backward" && trans ? (
@@ -408,6 +426,7 @@ export default function App() {
               isToday={isSameDay(trans.date, today)}
               loading={trans.loading}
               className="page-layer-top tear-backward"
+              {...navProps}
               onImageClick={handleImageClick}
             />
           ) : (
@@ -417,54 +436,24 @@ export default function App() {
               images={current.images}
               isToday={isToday}
               loading={current.loading}
+              {...navProps}
               onImageClick={handleImageClick}
             />
           )}
         </div>
 
-        {/* Navigation */}
-        <div className="nav-row">
-          <button className="nav-btn" onClick={() => navigate("backward")} disabled={busy}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-          </button>
-
-          {isToday ? (
-            <button
-              className="add-btn"
-              onClick={() => setUploadOpen(true)}
-              disabled={isFull}
-              title={isFull ? "Today's page is full" : "Add your picture"}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              <span>Add picture</span>
-            </button>
-          ) : (
-            <button className="today-btn" onClick={() => {
-              if (!animating) {
-                fetchDay(new Date()).then((s) => {
-                  setCurrent(s);
-                });
-              }
-            }}>
-              Jump to today
-            </button>
-          )}
-
-          <button
-            className="nav-btn"
-            onClick={() => navigate("forward")}
-            disabled={!canGoForward || busy}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M9 18l6-6-6-6" />
-            </svg>
-          </button>
-        </div>
+        {/* Floating add button */}
+        <button
+          className="fab-add"
+          onClick={() => setUploadOpen(true)}
+          title="Add your picture"
+          disabled={busy}
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </button>
       </div>
 
       {viewImage && (
@@ -481,7 +470,6 @@ export default function App() {
         onClose={() => setUploadOpen(false)}
         onUpload={handleUpload}
         defaultName={lastName}
-        isFull={isFull}
       />
     </div>
   );
