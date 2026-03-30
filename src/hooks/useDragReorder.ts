@@ -111,15 +111,17 @@ export function useDragReorder({ onReorder, occupiedPositions }: Options) {
       const clientX = e.clientX;
       const clientY = e.clientY;
       const pointerId = e.pointerId;
+      const isTouch = e.pointerType === "touch";
 
-      // Capture pointer on the target element during the hold phase.
-      // This keeps pointermove/up flowing to this element without
-      // needing document-level listeners (which interfere with swipe).
       const target = e.currentTarget as HTMLElement;
-      target.setPointerCapture(pointerId);
-      holdTargetRef.current = target;
 
-      // Hold-phase movement check
+      // On touch: capture pointer on the element to prevent swipe interference.
+      // On mouse: use document-level listeners to preserve normal click behavior.
+      if (isTouch) {
+        target.setPointerCapture(pointerId);
+        holdTargetRef.current = target;
+      }
+
       function onHoldMove(ev: PointerEvent) {
         const dx = ev.clientX - startPointer.current.x;
         const dy = ev.clientY - startPointer.current.y;
@@ -130,25 +132,31 @@ export function useDragReorder({ onReorder, occupiedPositions }: Options) {
       function onHoldUp() { cleanup(); }
       function cleanup() {
         cancelHold();
-        target.removeEventListener("pointermove", onHoldMove);
-        target.removeEventListener("pointerup", onHoldUp);
-        target.removeEventListener("pointercancel", onHoldUp);
-        try { target.releasePointerCapture(pointerId); } catch {}
+        const el = isTouch ? target : document;
+        el.removeEventListener("pointermove", onHoldMove as EventListener);
+        el.removeEventListener("pointerup", onHoldUp);
+        el.removeEventListener("pointercancel", onHoldUp);
+        if (isTouch) {
+          try { target.releasePointerCapture(pointerId); } catch {}
+        }
       }
 
-      target.addEventListener("pointermove", onHoldMove);
-      target.addEventListener("pointerup", onHoldUp);
-      target.addEventListener("pointercancel", onHoldUp);
+      const listenTarget = isTouch ? target : document;
+      listenTarget.addEventListener("pointermove", onHoldMove as EventListener);
+      listenTarget.addEventListener("pointerup", onHoldUp);
+      listenTarget.addEventListener("pointercancel", onHoldUp);
 
       cancelHold();
       holdTimer.current = setTimeout(() => {
         holdTimer.current = null;
-        // Remove hold-phase listeners
-        target.removeEventListener("pointermove", onHoldMove);
-        target.removeEventListener("pointerup", onHoldUp);
-        target.removeEventListener("pointercancel", onHoldUp);
-        try { target.releasePointerCapture(pointerId); } catch {}
-        holdTargetRef.current = null;
+        const el = isTouch ? target : document;
+        el.removeEventListener("pointermove", onHoldMove as EventListener);
+        el.removeEventListener("pointerup", onHoldUp);
+        el.removeEventListener("pointercancel", onHoldUp);
+        if (isTouch) {
+          try { target.releasePointerCapture(pointerId); } catch {}
+          holdTargetRef.current = null;
+        }
 
         snapshotCellRects();
         const cellRect = cellRectsRef.current.get(gridPos);
