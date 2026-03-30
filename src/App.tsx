@@ -30,6 +30,7 @@ import {
   saveLastName,
   getAvailableSlot,
   calcSlotCount,
+  generateImageId,
   randomTilt,
   randomOffset,
   resizeImage,
@@ -48,17 +49,17 @@ function addDays(d: Date, n: number) {
 interface DayState {
   date: Date;
   data: DayData;
-  images: Record<number, string>;
+  images: Record<string, string>;
   loading: boolean;
 }
 
 async function fetchDay(date: Date): Promise<DayState> {
   const data = await loadDayData(date);
-  const imgs: Record<number, string> = {};
+  const imgs: Record<string, string> = {};
   await Promise.all(
     data.entries.map(async (e) => {
-      const img = await loadImage(date, e.gridPos);
-      if (img) imgs[e.gridPos] = img;
+      const img = await loadImage(date, e.imageId);
+      if (img) imgs[e.imageId] = img;
     })
   );
   return { date, data, images: imgs, loading: false };
@@ -97,7 +98,7 @@ export default function App() {
   const [animDir, setAnimDir] = useState<"forward" | "backward" | null>(null);
   const [animating, setAnimating] = useState(false);
 
-  const [viewImage, setViewImage] = useState<{ url: string; name: string; gridPos: number } | null>(null);
+  const [viewImage, setViewImage] = useState<{ url: string; name: string; imageId: string } | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [lastName, setLastName] = useState("");
 
@@ -175,9 +176,11 @@ export default function App() {
   async function handleUpload(file: File, name: string) {
     const visibleSlots = calcSlotCount(current.data.entries);
     const slot = getAvailableSlot(current.data.entries, visibleSlots);
+    const imageId = generateImageId();
 
     const dataUrl = await resizeImage(file);
     const entry: DayEntry = {
+      imageId,
       gridPos: slot,
       name,
       tilt: randomTilt(),
@@ -187,28 +190,28 @@ export default function App() {
 
     const newData: DayData = { entries: [...current.data.entries, entry] };
     await saveDayData(current.date, newData);
-    await saveImage(current.date, slot, dataUrl, name);
+    await saveImage(current.date, imageId, dataUrl, name);
     await saveLastName(name);
     setLastName(name);
     setCurrent((prev) => ({
       ...prev,
       data: newData,
-      images: { ...prev.images, [slot]: dataUrl },
+      images: { ...prev.images, [imageId]: dataUrl },
     }));
     setUploadOpen(false);
   }
 
-  function handleImageClick(url: string, name: string, gridPos: number) {
-    if (!busy) setViewImage({ url, name, gridPos });
+  function handleImageClick(url: string, name: string, imageId: string) {
+    if (!busy) setViewImage({ url, name, imageId });
   }
 
   async function handleDelete() {
     if (!viewImage) return;
-    const { gridPos } = viewImage;
-    await deleteEntry(current.date, gridPos);
-    const newEntries = current.data.entries.filter((e) => e.gridPos !== gridPos);
+    const { imageId } = viewImage;
+    await deleteEntry(current.date, imageId);
+    const newEntries = current.data.entries.filter((e) => e.imageId !== imageId);
     const newImages = { ...current.images };
-    delete newImages[gridPos];
+    delete newImages[imageId];
     setCurrent((prev) => ({
       ...prev,
       data: { entries: newEntries },
@@ -228,26 +231,12 @@ export default function App() {
       return e;
     });
 
-    // Update images map: swap the blob URLs
-    const newImages = { ...current.images };
-    const fromImg = newImages[from];
-    const toImg = newImages[to];
-    delete newImages[from];
-    delete newImages[to];
-    if (fromImg) newImages[to] = fromImg;
-    if (toImg) newImages[from] = toImg;
-
     const newData: DayData = { entries: newEntries };
     setCurrent((prev) => ({
       ...prev,
       data: newData,
-      images: newImages,
     }));
-
-    // Persist: save entries and re-upload images to new positions (no name = no Discord notification)
     await saveDayData(current.date, newData);
-    if (fromImg) await saveImage(current.date, to, fromImg);
-    if (toImg) await saveImage(current.date, from, toImg);
   }
 
   const canGoForward = !isSameDay(current.date, today);

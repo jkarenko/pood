@@ -1,6 +1,7 @@
 // ── Types ──
 
 export interface DayEntry {
+  imageId: string;
   gridPos: number;
   name: string;
   tilt: number;
@@ -59,13 +60,13 @@ export async function saveDayData(date: Date, data: DayData): Promise<void> {
 
 export async function loadImage(
   date: Date,
-  gridPos: number
+  imageId: string
 ): Promise<string | null> {
   const phrase = getActivePhrase();
   if (!phrase) return null;
   try {
     const res = await fetch(
-      `${API}/images/${dateKey(date)}/${gridPos}`,
+      `${API}/images/${dateKey(date)}/${imageId}`,
       { headers: authHeaders() }
     );
     if (!res.ok) return null;
@@ -78,33 +79,36 @@ export async function loadImage(
 
 export async function saveImage(
   date: Date,
-  gridPos: number,
+  imageId: string,
   dataUrl: string,
   name?: string
 ): Promise<void> {
   const phrase = getActivePhrase();
   if (!phrase) return;
-  // Convert data URL to binary
   const res = await fetch(dataUrl);
   const blob = await res.blob();
 
   const params = name ? `?name=${encodeURIComponent(name)}` : "";
-  await fetch(`${API}/images/${dateKey(date)}/${gridPos}${params}`, {
+  await fetch(`${API}/images/${dateKey(date)}/${imageId}${params}`, {
     method: "POST",
     headers: authHeaders(),
     body: blob,
   });
 }
 
+export function generateImageId(): string {
+  return crypto.randomUUID();
+}
+
 // ── Delete entry ──
 
 export async function deleteEntry(
   date: Date,
-  gridPos: number
+  imageId: string
 ): Promise<void> {
   const phrase = getActivePhrase();
   if (!phrase) return;
-  await fetch(`${API}/days/${dateKey(date)}/${gridPos}`, {
+  await fetch(`${API}/days/${dateKey(date)}/${imageId}`, {
     method: "DELETE",
     headers: authHeaders(),
   });

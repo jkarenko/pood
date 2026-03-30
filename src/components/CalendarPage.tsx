@@ -14,12 +14,12 @@ const MONTHS = [
 interface Props {
   date: Date;
   entries: DayEntry[];
-  images: Record<number, string>;
+  images: Record<string, string>;
   isToday: boolean;
   loading: boolean;
   className?: string;
   style?: React.CSSProperties;
-  onImageClick?: (url: string, name: string, gridPos: number) => void;
+  onImageClick?: (url: string, name: string, imageId: string) => void;
   onNavigate?: (dir: "forward" | "backward") => void;
   onGoToDate?: (date: Date) => void;
   onReorder?: (from: number, to: number) => void;
@@ -393,13 +393,13 @@ export function CalendarPage({ date, entries, images, isToday, loading, classNam
                 className={`grid-cell${isDragTarget ? " drag-target" : ""}${isDragSource ? " drag-source" : ""}`}
                 onPointerDown={(e) => handleCellPointerDown(e, i)}
               >
-                {displayEntry && images[displayEntry.gridPos] ? (
+                {displayEntry && images[displayEntry.imageId] ? (
                   <PolaroidImage
                     entry={displayEntry}
-                    imageUrl={images[displayEntry.gridPos]}
+                    imageUrl={images[displayEntry.imageId]}
                     onClick={() => {
                       if (!drag.active) {
-                        onImageClick?.(images[displayEntry.gridPos], displayEntry.name, displayEntry.gridPos);
+                        onImageClick?.(images[displayEntry.imageId], displayEntry.name, displayEntry.imageId);
                       }
                     }}
                     className={previewSwap ? "swap-preview" : hideSource ? "drag-hidden" : ""}
@@ -416,7 +416,7 @@ export function CalendarPage({ date, entries, images, isToday, loading, classNam
       </div>
 
       {/* Floating dragged polaroid — positioned relative to the calendar page */}
-      {drag.active && sourceEntry && images[sourceEntry.gridPos] && (
+      {drag.active && sourceEntry && images[sourceEntry.imageId] && (
         <div
           className="drag-overlay"
           style={{
@@ -425,7 +425,7 @@ export function CalendarPage({ date, entries, images, isToday, loading, classNam
         >
           <PolaroidImage
             entry={{ ...sourceEntry, tilt: 0, offsetX: 0, offsetY: 0 }}
-            imageUrl={images[sourceEntry.gridPos]}
+            imageUrl={images[sourceEntry.imageId]}
             onClick={() => {}}
             className="dragging"
           />

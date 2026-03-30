@@ -11,16 +11,16 @@ const connStr = process.env.AZURE_STORAGE_CONNECTION_STRING!;
 const blobService = BlobServiceClient.fromConnectionString(connStr);
 const container = blobService.getContainerClient("images");
 
-// GET /api/images/{date}/{gridPos} — exempt from rate limiting
+// GET /api/images/{date}/{imageId} — exempt from rate limiting
 app.http("getImage", {
   methods: ["GET"],
-  route: "images/{date}/{gridPos}",
+  route: "images/{date}/{imageId}",
   handler: async (req: HttpRequest): Promise<HttpResponseInit> => {
-    const { date, gridPos } = req.params;
+    const { date, imageId } = req.params;
     const group = getGroupId(req);
     if (!group) return { status: 403 };
 
-    const blob = container.getBlobClient(`${group}/${date}/${gridPos}.jpg`);
+    const blob = container.getBlobClient(`${group}/${date}/${imageId}.jpg`);
 
     try {
       const props = await blob.getProperties();
@@ -45,19 +45,19 @@ app.http("getImage", {
   },
 });
 
-// POST /api/images/{date}/{gridPos}
+// POST /api/images/{date}/{imageId}
 app.http("saveImage", {
   methods: ["POST"],
-  route: "images/{date}/{gridPos}",
+  route: "images/{date}/{imageId}",
   handler: async (req: HttpRequest): Promise<HttpResponseInit> => {
     const blocked = await checkRateLimit(req);
     if (blocked) return blocked;
 
-    const { date, gridPos } = req.params;
+    const { date, imageId } = req.params;
     const group = getGroupId(req);
     if (!group) return { status: 403 };
 
-    const blob = container.getBlockBlobClient(`${group}/${date}/${gridPos}.jpg`);
+    const blob = container.getBlockBlobClient(`${group}/${date}/${imageId}.jpg`);
 
     const body = await req.arrayBuffer();
     await blob.uploadData(Buffer.from(body), {
