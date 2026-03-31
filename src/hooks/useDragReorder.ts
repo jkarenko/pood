@@ -105,13 +105,9 @@ export function useDragReorder({ onReorder, occupiedPositions }: Options) {
 
       const target = e.currentTarget as HTMLElement;
 
-      // On touch: capture pointer on the element to prevent swipe/scroll interference.
-      // Capture stays active throughout the entire drag on touch — releasing it
-      // causes iPhone Safari to fire pointercancel and kill the drag.
+      // On touch: do NOT capture pointer yet — let the browser handle pan-y
+      // scrolling. We only capture when the hold timer fires (drag activates).
       // On mouse: use document-level listeners to preserve normal click behavior.
-      if (isTouch) {
-        target.setPointerCapture(pointerId);
-      }
 
       function onHoldMove(ev: PointerEvent) {
         const dx = ev.clientX - startPointer.current.x;
@@ -130,9 +126,6 @@ export function useDragReorder({ onReorder, occupiedPositions }: Options) {
         el.removeEventListener("pointermove", onHoldMove as EventListener);
         el.removeEventListener("pointerup", onHoldUp);
         el.removeEventListener("pointercancel", onHoldUp);
-        if (isTouch) {
-          try { target.releasePointerCapture(pointerId); } catch {}
-        }
       }
 
       const listenTarget = isTouch ? target : document;
@@ -147,6 +140,15 @@ export function useDragReorder({ onReorder, occupiedPositions }: Options) {
         el.removeEventListener("pointerup", onHoldUp);
         el.removeEventListener("pointercancel", onHoldUp);
 
+        // On touch: NOW capture the pointer and block scrolling.
+        // Prevent scrolling via a non-passive touchmove handler on document.
+        let preventScrollHandler: ((e: TouchEvent) => void) | null = null;
+        if (isTouch) {
+          target.setPointerCapture(pointerId);
+          preventScrollHandler = (e: TouchEvent) => e.preventDefault();
+          document.addEventListener("touchmove", preventScrollHandler, { passive: false });
+        }
+
         snapshotCellRects();
         const cellRect = cellRectsRef.current.get(gridPos);
         const gx = cellRect ? clientX - cellRect.left : 0;
@@ -156,7 +158,7 @@ export function useDragReorder({ onReorder, occupiedPositions }: Options) {
         activeRef.current = true;
 
         // Install drag-phase listeners immediately (no useEffect gap).
-        // On touch, keep pointer captured on the cell — captured elements
+        // On touch, pointer is now captured on the cell — captured elements
         // receive all pointer events regardless of finger position, and
         // clientX/clientY still reflect actual pointer coordinates for hit testing.
         function onDragMove(ev: PointerEvent) {
@@ -197,6 +199,9 @@ export function useDragReorder({ onReorder, occupiedPositions }: Options) {
           dragEl.removeEventListener("pointercancel", onDragCancel);
           if (isTouch) {
             try { target.releasePointerCapture(pointerId); } catch {}
+          }
+          if (preventScrollHandler) {
+            document.removeEventListener("touchmove", preventScrollHandler);
           }
         }
 
