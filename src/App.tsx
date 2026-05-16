@@ -34,6 +34,7 @@ import {
   randomTilt,
   randomOffset,
   resizeImage,
+  addReaction,
 } from "@/lib/storage";
 
 function isSameDay(a: Date, b: Date) {
@@ -220,6 +221,31 @@ export default function App() {
     setViewImage(null);
   }
 
+  async function handleReact(imageId: string, emoji: string, delta: 1 | -1) {
+    const target = current.data.entries.find((e) => e.imageId === imageId);
+    if (!target) return;
+    const before = target.reactions ?? {};
+    const optimistic: Record<string, number> = { ...before };
+    const next = (optimistic[emoji] ?? 0) + delta;
+    if (next <= 0) delete optimistic[emoji];
+    else optimistic[emoji] = next;
+
+    const applyReactions = (rx: Record<string, number>) =>
+      setCurrent((prev) => ({
+        ...prev,
+        data: {
+          entries: prev.data.entries.map((e) =>
+            e.imageId === imageId ? { ...e, reactions: rx } : e
+          ),
+        },
+      }));
+
+    applyReactions(optimistic);
+    const server = await addReaction(current.date, imageId, emoji, delta);
+    if (server) applyReactions(server);
+    else applyReactions(before);
+  }
+
   async function handleReorder(from: number, to: number) {
     const newEntries = current.data.entries.map((e) => {
       if (e.gridPos === from) {
@@ -349,6 +375,7 @@ export default function App() {
               className="page-layer-bottom"
               {...navProps}
               onImageClick={handleImageClick}
+              onImageReact={handleReact}
             />
           )}
 
@@ -363,6 +390,7 @@ export default function App() {
               className="page-layer-bottom"
               {...navProps}
               onImageClick={handleImageClick}
+              onImageReact={handleReact}
             />
           )}
 
@@ -377,6 +405,7 @@ export default function App() {
               className="page-layer-bottom"
               {...navProps}
               onImageClick={handleImageClick}
+              onImageReact={handleReact}
             />
           )}
 
@@ -390,6 +419,7 @@ export default function App() {
               className="page-layer-bottom"
               {...navProps}
               onImageClick={handleImageClick}
+              onImageReact={handleReact}
             />
           )}
 
@@ -407,6 +437,7 @@ export default function App() {
                 style={getTearStyle("forward", swipe.progress)}
                 {...navProps}
               onImageClick={handleImageClick}
+              onImageReact={handleReact}
               />
             ) : swipe.direction === "backward" && swipeTarget ? (
               /* Backward: prev day flies in on top */
@@ -420,6 +451,7 @@ export default function App() {
                 style={getTearStyle("backward", swipe.progress)}
                 {...navProps}
               onImageClick={handleImageClick}
+              onImageReact={handleReact}
               />
             ) : (
               <CalendarPage
@@ -430,6 +462,7 @@ export default function App() {
                 loading={current.loading}
                 {...navProps}
               onImageClick={handleImageClick}
+              onImageReact={handleReact}
               />
             )
           ) : animDir === "forward" ? (
@@ -442,6 +475,7 @@ export default function App() {
               className="page-layer-top tear-forward"
               {...navProps}
               onImageClick={handleImageClick}
+              onImageReact={handleReact}
             />
           ) : animDir === "backward" && trans ? (
             <CalendarPage
@@ -453,6 +487,7 @@ export default function App() {
               className="page-layer-top tear-backward"
               {...navProps}
               onImageClick={handleImageClick}
+              onImageReact={handleReact}
             />
           ) : (
             <CalendarPage
@@ -463,6 +498,7 @@ export default function App() {
               loading={current.loading}
               {...navProps}
               onImageClick={handleImageClick}
+              onImageReact={handleReact}
             />
           )}
         </div>
@@ -485,8 +521,12 @@ export default function App() {
         <ImageViewer
           imageUrl={viewImage.url}
           name={viewImage.name}
+          reactions={
+            current.data.entries.find((e) => e.imageId === viewImage.imageId)?.reactions ?? {}
+          }
           onClose={() => setViewImage(null)}
           onDelete={handleDelete}
+          onReact={(emoji, delta) => handleReact(viewImage.imageId, emoji, delta)}
         />
       )}
 

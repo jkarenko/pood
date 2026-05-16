@@ -7,6 +7,7 @@ export interface DayEntry {
   tilt: number;
   offsetX: number;
   offsetY: number;
+  reactions?: Record<string, number>;
 }
 
 export interface DayData {
@@ -101,6 +102,30 @@ export async function saveImage(
 
 export function generateImageId(): string {
   return crypto.randomUUID();
+}
+
+// ── Reactions ──
+
+export async function addReaction(
+  date: Date,
+  imageId: string,
+  emoji: string,
+  delta: 1 | -1
+): Promise<Record<string, number> | null> {
+  const phrase = getActivePhrase();
+  if (!phrase) return null;
+  try {
+    const res = await fetch(`${API}/days/${dateKey(date)}/${imageId}/reactions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ emoji, delta }),
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { reactions?: Record<string, number> };
+    return body.reactions ?? {};
+  } catch {
+    return null;
+  }
 }
 
 // ── Delete entry ──

@@ -7,8 +7,24 @@ interface Props {
   className?: string;
 }
 
+function topReaction(reactions: Record<string, number> | undefined) {
+  if (!reactions) return null;
+  let topEmoji: string | null = null;
+  let topCount = 0;
+  let total = 0;
+  for (const [emoji, count] of Object.entries(reactions)) {
+    total += count;
+    if (count > topCount) {
+      topCount = count;
+      topEmoji = emoji;
+    }
+  }
+  return topEmoji ? { emoji: topEmoji, total } : null;
+}
+
 export function PolaroidImage({ entry, imageUrl, onClick, className = "" }: Props) {
   if (!imageUrl) return null;
+  const top = topReaction(entry.reactions);
 
   return (
     <div
@@ -26,6 +42,12 @@ export function PolaroidImage({ entry, imageUrl, onClick, className = "" }: Prop
             className="polaroid-image"
             draggable={false}
           />
+          {top && (
+            <div className="polaroid-reaction-badge">
+              <span className="polaroid-reaction-emoji">{top.emoji}</span>
+              {top.total > 1 && <span className="polaroid-reaction-count">{top.total}</span>}
+            </div>
+          )}
         </div>
         <div className="polaroid-label">{entry.name}</div>
       </div>

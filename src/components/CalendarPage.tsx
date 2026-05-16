@@ -20,6 +20,7 @@ interface Props {
   className?: string;
   style?: React.CSSProperties;
   onImageClick?: (url: string, name: string, imageId: string) => void;
+  onImageReact?: (imageId: string, emoji: string, delta: 1 | -1) => void;
   onNavigate?: (dir: "forward" | "backward") => void;
   onGoToDate?: (date: Date) => void;
   onReorder?: (from: number, to: number) => void;
@@ -27,7 +28,9 @@ interface Props {
   busy?: boolean;
 }
 
-export function CalendarPage({ date, entries, images, isToday, loading, className = "", style, onImageClick, onNavigate, onGoToDate, onReorder, canGoForward = true, busy = false }: Props) {
+const DOUBLE_TAP_MS = 250;
+
+export function CalendarPage({ date, entries, images, isToday, loading, className = "", style, onImageClick, onImageReact, onNavigate, onGoToDate, onReorder, canGoForward = true, busy = false }: Props) {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const calendarPageRef = useRef<HTMLDivElement | null>(null);
   const dayNum = date.getDate();
@@ -70,6 +73,43 @@ export function CalendarPage({ date, entries, images, isToday, loading, classNam
     onReorder: handleReorder,
     occupiedPositions,
   });
+
+  // Double-tap detection: a second tap on the same polaroid within DOUBLE_TAP_MS
+  // drops a heart reaction. First tap is deferred so we can cancel-and-react.
+  const tapRef = useRef<{ imageId: string; timer: ReturnType<typeof setTimeout> } | null>(null);
+  useEffect(() => () => {
+    if (tapRef.current) clearTimeout(tapRef.current.timer);
+  }, []);
+
+  const handlePolaroidTap = useCallback(
+    (imageId: string, url: string, name: string) => {
+      if (drag.active) return;
+      const pending = tapRef.current;
+      if (pending && pending.imageId === imageId) {
+        clearTimeout(pending.timer);
+        tapRef.current = null;
+        if (onImageReact) {
+          onImageReact(imageId, "❤️", 1);
+          return;
+        }
+        // No reactions wired — fall through to open.
+        onImageClick?.(url, name, imageId);
+        return;
+      }
+      if (pending) clearTimeout(pending.timer);
+      // If reactions aren't wired, open immediately (no point delaying).
+      if (!onImageReact) {
+        onImageClick?.(url, name, imageId);
+        return;
+      }
+      const timer = setTimeout(() => {
+        tapRef.current = null;
+        onImageClick?.(url, name, imageId);
+      }, DOUBLE_TAP_MS);
+      tapRef.current = { imageId, timer };
+    },
+    [drag.active, onImageClick, onImageReact]
+  );
 
   // Wire refs
   const setGridRefs = useCallback(
@@ -397,11 +437,13 @@ export function CalendarPage({ date, entries, images, isToday, loading, classNam
                   <PolaroidImage
                     entry={displayEntry}
                     imageUrl={images[displayEntry.imageId]}
-                    onClick={() => {
-                      if (!drag.active) {
-                        onImageClick?.(images[displayEntry.imageId], displayEntry.name, displayEntry.imageId);
-                      }
-                    }}
+                    onClick={() =>
+                      handlePolaroidTap(
+                        displayEntry.imageId,
+                        images[displayEntry.imageId],
+                        displayEntry.name
+                      )
+                    }
                     className={previewSwap ? "swap-preview" : hideSource ? "drag-hidden" : ""}
                   />
                 ) : null}
