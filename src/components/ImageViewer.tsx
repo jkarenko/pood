@@ -1,8 +1,69 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Picker from "@emoji-mart/react";
 import emojiData from "@emoji-mart/data";
 import { SmilePlus } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
+const LONG_PRESS_MS = 500;
+
+interface ChipProps {
+  emoji: string;
+  count: number;
+  isMine: boolean;
+  onTap: () => void;
+  onForceRemove: () => void;
+}
+
+function ReactionChip({ emoji, count, isMine, onTap, onForceRemove }: ChipProps) {
+  const timerRef = useRef<number | null>(null);
+  const firedRef = useRef(false);
+
+  const startTimer = () => {
+    firedRef.current = false;
+    timerRef.current = window.setTimeout(() => {
+      firedRef.current = true;
+      onForceRemove();
+    }, LONG_PRESS_MS);
+  };
+  const cancelTimer = () => {
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  return (
+    <button
+      onPointerDown={startTimer}
+      onPointerUp={cancelTimer}
+      onPointerLeave={cancelTimer}
+      onPointerCancel={cancelTimer}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        cancelTimer();
+        firedRef.current = true;
+        onForceRemove();
+      }}
+      onClick={() => {
+        if (firedRef.current) {
+          firedRef.current = false;
+          return;
+        }
+        onTap();
+      }}
+      className={
+        "px-2.5 py-1 rounded-full flex items-center gap-1.5 transition-colors text-white select-none " +
+        (isMine
+          ? "bg-white/25 ring-1 ring-white/50 hover:bg-white/30"
+          : "bg-white/10 hover:bg-white/20")
+      }
+      title="Tap to toggle · hold to remove one"
+    >
+      <span className="text-base leading-none">{emoji}</span>
+      <span className="text-xs font-medium">{count}</span>
+    </button>
+  );
+}
 
 interface Props {
   imageUrl: string;
@@ -12,9 +73,10 @@ interface Props {
   onClose: () => void;
   onDelete: () => void;
   onToggleReaction: (emoji: string) => void;
+  onForceRemove: (emoji: string) => void;
 }
 
-export function ImageViewer({ imageUrl, name, reactions, myReactions, onClose, onDelete, onToggleReaction }: Props) {
+export function ImageViewer({ imageUrl, name, reactions, myReactions, onClose, onDelete, onToggleReaction, onForceRemove }: Props) {
   const mine = new Set(myReactions);
   const [confirming, setConfirming] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -57,25 +119,16 @@ export function ImageViewer({ imageUrl, name, reactions, myReactions, onClose, o
             className="mt-3 flex flex-wrap items-center justify-center gap-2"
             onClick={(e) => e.stopPropagation()}
           >
-            {sortedReactions.map(([emoji, count]) => {
-              const isMine = mine.has(emoji);
-              return (
-                <button
-                  key={emoji}
-                  onClick={() => onToggleReaction(emoji)}
-                  className={
-                    "px-2.5 py-1 rounded-full flex items-center gap-1.5 transition-colors text-white " +
-                    (isMine
-                      ? "bg-white/25 ring-1 ring-white/50 hover:bg-white/30"
-                      : "bg-white/10 hover:bg-white/20")
-                  }
-                  title={isMine ? "Tap to remove your reaction" : "Tap to react"}
-                >
-                  <span className="text-base leading-none">{emoji}</span>
-                  <span className="text-xs font-medium">{count}</span>
-                </button>
-              );
-            })}
+            {sortedReactions.map(([emoji, count]) => (
+              <ReactionChip
+                key={emoji}
+                emoji={emoji}
+                count={count}
+                isMine={mine.has(emoji)}
+                onTap={() => onToggleReaction(emoji)}
+                onForceRemove={() => onForceRemove(emoji)}
+              />
+            ))}
           </div>
         )}
 

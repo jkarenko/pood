@@ -271,6 +271,49 @@ export default function App() {
     }
   }
 
+  // Force-decrement a reaction regardless of ownership (moderation: e.g.
+  // remove an inappropriate emoji someone else added). Drops local "mine"
+  // flag for the emoji too, since after this we don't own any copy.
+  async function handleForceRemove(imageId: string, emoji: string) {
+    const target = current.data.entries.find((e) => e.imageId === imageId);
+    if (!target) return;
+    const before = target.reactions ?? {};
+    if (!before[emoji]) return;
+
+    const optimistic: Record<string, number> = { ...before };
+    const next = (optimistic[emoji] ?? 0) - 1;
+    if (next <= 0) delete optimistic[emoji];
+    else optimistic[emoji] = next;
+
+    const applyReactions = (rx: Record<string, number>) =>
+      setCurrent((prev) => ({
+        ...prev,
+        data: {
+          entries: prev.data.entries.map((e) =>
+            e.imageId === imageId ? { ...e, reactions: rx } : e
+          ),
+        },
+      }));
+
+    const hadOwnership = getMyReactions(current.date, imageId).includes(emoji);
+    if (hadOwnership) {
+      setMyReaction(current.date, imageId, emoji, false);
+      setMyReactionsState(getAllMyReactions());
+    }
+    applyReactions(optimistic);
+
+    const server = await addReaction(current.date, imageId, emoji, -1);
+    if (server) {
+      applyReactions(server);
+    } else {
+      if (hadOwnership) {
+        setMyReaction(current.date, imageId, emoji, true);
+        setMyReactionsState(getAllMyReactions());
+      }
+      applyReactions(before);
+    }
+  }
+
   async function handleReorder(from: number, to: number) {
     const newEntries = current.data.entries.map((e) => {
       if (e.gridPos === from) {
@@ -553,6 +596,7 @@ export default function App() {
           onClose={() => setViewImage(null)}
           onDelete={handleDelete}
           onToggleReaction={(emoji) => handleToggleReaction(viewImage.imageId, emoji)}
+          onForceRemove={(emoji) => handleForceRemove(viewImage.imageId, emoji)}
         />
       )}
 
