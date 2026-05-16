@@ -104,6 +104,52 @@ export function generateImageId(): string {
   return crypto.randomUUID();
 }
 
+// ── My reactions (per-device tracking, localStorage) ──
+// Records which emojis THIS device has added to each image, so the UI can
+// show them as "mine" and toggle them off. Server stays aggregate.
+
+const MY_REACTIONS_KEY = "pood:my-reactions";
+
+function loadMyReactionsMap(): Record<string, string[]> {
+  try {
+    const raw = localStorage.getItem(MY_REACTIONS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveMyReactionsMap(map: Record<string, string[]>): void {
+  try {
+    localStorage.setItem(MY_REACTIONS_KEY, JSON.stringify(map));
+  } catch {}
+}
+
+function myKey(date: Date, imageId: string): string {
+  return `${dateKey(date)}:${imageId}`;
+}
+
+export function getAllMyReactions(): Record<string, string[]> {
+  return loadMyReactionsMap();
+}
+
+export function getMyReactions(date: Date, imageId: string): string[] {
+  return loadMyReactionsMap()[myKey(date, imageId)] ?? [];
+}
+
+export function setMyReaction(date: Date, imageId: string, emoji: string, mine: boolean): void {
+  const map = loadMyReactionsMap();
+  const k = myKey(date, imageId);
+  const current = new Set(map[k] ?? []);
+  if (mine) current.add(emoji);
+  else current.delete(emoji);
+  if (current.size === 0) delete map[k];
+  else map[k] = Array.from(current);
+  saveMyReactionsMap(map);
+}
+
 // ── Reactions ──
 
 export async function addReaction(

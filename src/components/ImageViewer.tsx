@@ -8,12 +8,14 @@ interface Props {
   imageUrl: string;
   name: string;
   reactions: Record<string, number>;
+  myReactions: string[];
   onClose: () => void;
   onDelete: () => void;
-  onReact: (emoji: string, delta: 1 | -1) => void;
+  onToggleReaction: (emoji: string) => void;
 }
 
-export function ImageViewer({ imageUrl, name, reactions, onClose, onDelete, onReact }: Props) {
+export function ImageViewer({ imageUrl, name, reactions, myReactions, onClose, onDelete, onToggleReaction }: Props) {
+  const mine = new Set(myReactions);
   const [confirming, setConfirming] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -55,16 +57,25 @@ export function ImageViewer({ imageUrl, name, reactions, onClose, onDelete, onRe
             className="mt-3 flex flex-wrap items-center justify-center gap-2"
             onClick={(e) => e.stopPropagation()}
           >
-            {sortedReactions.map(([emoji, count]) => (
-              <button
-                key={emoji}
-                onClick={() => onReact(emoji, 1)}
-                className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center gap-1.5 transition-colors"
-              >
-                <span className="text-base leading-none">{emoji}</span>
-                <span className="text-xs font-medium">{count}</span>
-              </button>
-            ))}
+            {sortedReactions.map(([emoji, count]) => {
+              const isMine = mine.has(emoji);
+              return (
+                <button
+                  key={emoji}
+                  onClick={() => onToggleReaction(emoji)}
+                  className={
+                    "px-2.5 py-1 rounded-full flex items-center gap-1.5 transition-colors text-white " +
+                    (isMine
+                      ? "bg-white/25 ring-1 ring-white/50 hover:bg-white/30"
+                      : "bg-white/10 hover:bg-white/20")
+                  }
+                  title={isMine ? "Tap to remove your reaction" : "Tap to react"}
+                >
+                  <span className="text-base leading-none">{emoji}</span>
+                  <span className="text-xs font-medium">{count}</span>
+                </button>
+              );
+            })}
           </div>
         )}
 
@@ -129,7 +140,7 @@ export function ImageViewer({ imageUrl, name, reactions, onClose, onDelete, onRe
                 data={emojiData}
                 theme="dark"
                 onEmojiSelect={(e: { native: string }) => {
-                  onReact(e.native, 1);
+                  onToggleReaction(e.native);
                   setPickerOpen(false);
                 }}
                 previewPosition="none"

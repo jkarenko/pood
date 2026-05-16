@@ -35,7 +35,17 @@ import {
   randomOffset,
   resizeImage,
   addReaction,
+  getAllMyReactions,
+  getMyReactions,
+  setMyReaction,
 } from "@/lib/storage";
+
+function dateImageKey(date: Date, imageId: string): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}:${imageId}`;
+}
 
 function isSameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -102,6 +112,7 @@ export default function App() {
   const [viewImage, setViewImage] = useState<{ url: string; name: string; imageId: string } | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [lastName, setLastName] = useState("");
+  const [myReactions, setMyReactionsState] = useState<Record<string, string[]>>(() => getAllMyReactions());
 
   // Swipe navigation
   const [swipe, setSwipe] = useState<SwipeState>({
@@ -221,10 +232,15 @@ export default function App() {
     setViewImage(null);
   }
 
-  async function handleReact(imageId: string, emoji: string, delta: 1 | -1) {
+  // Toggle a reaction from THIS device. localStorage tracks ownership so the
+  // same device can take back what it added; the server stays aggregate.
+  async function handleToggleReaction(imageId: string, emoji: string) {
     const target = current.data.entries.find((e) => e.imageId === imageId);
     if (!target) return;
     const before = target.reactions ?? {};
+    const wasMine = getMyReactions(current.date, imageId).includes(emoji);
+    const delta: 1 | -1 = wasMine ? -1 : 1;
+
     const optimistic: Record<string, number> = { ...before };
     const next = (optimistic[emoji] ?? 0) + delta;
     if (next <= 0) delete optimistic[emoji];
@@ -240,10 +256,19 @@ export default function App() {
         },
       }));
 
+    setMyReaction(current.date, imageId, emoji, !wasMine);
+    setMyReactionsState(getAllMyReactions());
     applyReactions(optimistic);
+
     const server = await addReaction(current.date, imageId, emoji, delta);
-    if (server) applyReactions(server);
-    else applyReactions(before);
+    if (server) {
+      applyReactions(server);
+    } else {
+      // Revert both count and ownership.
+      setMyReaction(current.date, imageId, emoji, wasMine);
+      setMyReactionsState(getAllMyReactions());
+      applyReactions(before);
+    }
   }
 
   async function handleReorder(from: number, to: number) {
@@ -375,7 +400,7 @@ export default function App() {
               className="page-layer-bottom"
               {...navProps}
               onImageClick={handleImageClick}
-              onImageReact={handleReact}
+              onImageReact={handleToggleReaction}
             />
           )}
 
@@ -390,7 +415,7 @@ export default function App() {
               className="page-layer-bottom"
               {...navProps}
               onImageClick={handleImageClick}
-              onImageReact={handleReact}
+              onImageReact={handleToggleReaction}
             />
           )}
 
@@ -405,7 +430,7 @@ export default function App() {
               className="page-layer-bottom"
               {...navProps}
               onImageClick={handleImageClick}
-              onImageReact={handleReact}
+              onImageReact={handleToggleReaction}
             />
           )}
 
@@ -419,7 +444,7 @@ export default function App() {
               className="page-layer-bottom"
               {...navProps}
               onImageClick={handleImageClick}
-              onImageReact={handleReact}
+              onImageReact={handleToggleReaction}
             />
           )}
 
@@ -437,7 +462,7 @@ export default function App() {
                 style={getTearStyle("forward", swipe.progress)}
                 {...navProps}
               onImageClick={handleImageClick}
-              onImageReact={handleReact}
+              onImageReact={handleToggleReaction}
               />
             ) : swipe.direction === "backward" && swipeTarget ? (
               /* Backward: prev day flies in on top */
@@ -451,7 +476,7 @@ export default function App() {
                 style={getTearStyle("backward", swipe.progress)}
                 {...navProps}
               onImageClick={handleImageClick}
-              onImageReact={handleReact}
+              onImageReact={handleToggleReaction}
               />
             ) : (
               <CalendarPage
@@ -462,7 +487,7 @@ export default function App() {
                 loading={current.loading}
                 {...navProps}
               onImageClick={handleImageClick}
-              onImageReact={handleReact}
+              onImageReact={handleToggleReaction}
               />
             )
           ) : animDir === "forward" ? (
@@ -475,7 +500,7 @@ export default function App() {
               className="page-layer-top tear-forward"
               {...navProps}
               onImageClick={handleImageClick}
-              onImageReact={handleReact}
+              onImageReact={handleToggleReaction}
             />
           ) : animDir === "backward" && trans ? (
             <CalendarPage
@@ -487,7 +512,7 @@ export default function App() {
               className="page-layer-top tear-backward"
               {...navProps}
               onImageClick={handleImageClick}
-              onImageReact={handleReact}
+              onImageReact={handleToggleReaction}
             />
           ) : (
             <CalendarPage
@@ -498,7 +523,7 @@ export default function App() {
               loading={current.loading}
               {...navProps}
               onImageClick={handleImageClick}
-              onImageReact={handleReact}
+              onImageReact={handleToggleReaction}
             />
           )}
         </div>
@@ -524,9 +549,10 @@ export default function App() {
           reactions={
             current.data.entries.find((e) => e.imageId === viewImage.imageId)?.reactions ?? {}
           }
+          myReactions={myReactions[dateImageKey(current.date, viewImage.imageId)] ?? []}
           onClose={() => setViewImage(null)}
           onDelete={handleDelete}
-          onReact={(emoji, delta) => handleReact(viewImage.imageId, emoji, delta)}
+          onToggleReaction={(emoji) => handleToggleReaction(viewImage.imageId, emoji)}
         />
       )}
 

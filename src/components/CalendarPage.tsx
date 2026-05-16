@@ -20,7 +20,7 @@ interface Props {
   className?: string;
   style?: React.CSSProperties;
   onImageClick?: (url: string, name: string, imageId: string) => void;
-  onImageReact?: (imageId: string, emoji: string, delta: 1 | -1) => void;
+  onImageReact?: (imageId: string, emoji: string) => void;
   onNavigate?: (dir: "forward" | "backward") => void;
   onGoToDate?: (date: Date) => void;
   onReorder?: (from: number, to: number) => void;
@@ -89,7 +89,7 @@ export function CalendarPage({ date, entries, images, isToday, loading, classNam
         clearTimeout(pending.timer);
         tapRef.current = null;
         if (onImageReact) {
-          onImageReact(imageId, "❤️", 1);
+          onImageReact(imageId, "❤️");
           return;
         }
         // No reactions wired — fall through to open.
