@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Picker from "@emoji-mart/react";
 import emojiData from "@emoji-mart/data";
+import { SmilePlus } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface Props {
@@ -116,24 +117,7 @@ export function ImageViewer({ imageUrl, name, reactions, onClose, onDelete, onRe
                 className="p-2 bg-black/40 hover:bg-black/60 text-white/60 hover:text-white/90 rounded-full transition-colors"
                 title="Add reaction"
               >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" opacity="0" />
-                  <circle cx="12" cy="12" r="9" />
-                  <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-                  <line x1="9" y1="10" x2="9.01" y2="10" />
-                  <line x1="15" y1="10" x2="15.01" y2="10" />
-                  <line x1="19" y1="4" x2="19" y2="8" />
-                  <line x1="17" y1="6" x2="21" y2="6" />
-                </svg>
+                <SmilePlus size={20} strokeWidth={2} />
               </button>
             </PopoverTrigger>
             <PopoverContent
